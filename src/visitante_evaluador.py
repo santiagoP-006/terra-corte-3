@@ -891,7 +891,7 @@ class VisitanteEvaluador(TerraVisitor):
                 "a_texto": self._f_a_texto,
                 "agregar": self._f_agregar,
                 "insertar": self._f_insertar,
-                "quitar": self._f_quitar
+                "quitar": self._f_quitar,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
@@ -1188,3 +1188,50 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(
                 f"'{operador}' solo opera sobre booleanos, se recibio "
                 f"{nombre_tipo(valor)}", linea)
+
+    def _f_agregar(self, args, linea):
+        """
+        agregar(lista, elemento) -> lista nueva con el elemento al final.
+        No muta la lista original; devuelve una copia extendida.
+        """
+        if len(args) != 2 or not isinstance(args[0], list):
+            raise ErrorSemantico(
+                "agregar() espera una lista y un elemento", linea)
+        return args[0] + [args[1]]
+
+
+    def _f_insertar(self, args, linea):
+        """
+        insertar(lista, indice, elemento) -> lista nueva con el elemento
+        en la posicion indicada. Los elementos siguientes se desplazan.
+        El indice puede ser 0 (inicio) hasta longitud(lista) (final).
+        """
+        if len(args) != 3 or not isinstance(args[0], list):
+            raise ErrorSemantico(
+                "insertar() espera una lista, un indice y un elemento", linea)
+        lista, indice, elemento = args
+        if isinstance(indice, bool) or not isinstance(indice, int):
+            raise ErrorSemantico(
+                "el indice de insertar() debe ser un numero entero", linea)
+        if indice < 0 or indice > len(lista):
+            raise ErrorSemantico(
+                f"indice {indice} fuera de rango para insertar "
+                f"(longitud {len(lista)})", linea)
+        return lista[:indice] + [elemento] + lista[indice:]
+
+
+    def _f_quitar(self, args, linea):
+        """
+        quitar(lista, indice) -> lista nueva sin el elemento en esa posicion.
+        """
+        if len(args) != 2 or not isinstance(args[0], list):
+            raise ErrorSemantico(
+                "quitar() espera una lista y un indice", linea)
+        lista, indice = args
+        if isinstance(indice, bool) or not isinstance(indice, int):
+            raise ErrorSemantico(
+                "el indice de quitar() debe ser un numero entero", linea)
+        if indice < 0 or indice >= len(lista):
+            raise ErrorSemantico(
+                f"indice {indice} fuera de rango (longitud {len(lista)})", linea)
+        return lista[:indice] + lista[indice + 1:]  

@@ -889,6 +889,9 @@ class VisitanteEvaluador(TerraVisitor):
                 "a_numero": self._f_a_numero,
                 "a_decimal": self._f_a_decimal,
                 "a_texto": self._f_a_texto,
+                "agregar": self._f_agregar,
+                "insertar": self._f_insertar,
+                "quitar": self._f_quitar
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)

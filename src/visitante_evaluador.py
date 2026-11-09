@@ -108,8 +108,30 @@ def formatear(valor, anidado=False) -> str:
         return f'"{valor}"' if anidado else valor
     if isinstance(valor, Tabla):
         return valor.como_texto()	    
+
+    if isinstance(valor, dict) and "tipo" in valor:
+        return _formatear_modelo(valor)
     return str(valor)
 
+def _formatear_modelo(modelo: dict) -> str:
+    """Representacion legible de un modelo de regresion."""
+    if modelo["tipo"] == "simple":
+        a = round(modelo["intercepto"], 6)
+        b = round(modelo["pendiente"],  6)
+        r2 = round(modelo["r_cuadrado"], 4)
+        return (f"Modelo lineal simple (n={modelo['n']})\n"
+                f"  y = {a} + {b} * x\n"
+                f"  R^2 = {r2}")
+    if modelo["tipo"] == "multiple":
+        coefs = [round(c, 6) for c in modelo["coeficientes"]]
+        r2    = round(modelo["r_cuadrado"], 4)
+        terms = " + ".join(f"{coefs[i+1]} * x{i+1}"
+                           for i in range(len(coefs) - 1))
+        return (f"Modelo lineal multiple (n={modelo['n']}, "
+                f"p={modelo['p']})\n"
+                f"  y = {coefs[0]} + {terms}\n"
+                f"  R^2 = {r2}")
+    return str(modelo)
 
 # =====================================================================
 # VISITANTE

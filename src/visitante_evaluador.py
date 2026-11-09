@@ -27,6 +27,7 @@ Tipos de Terra y su representacion en Python:
 
 import sys
 import os
+from src import regresion as reg
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -892,6 +893,12 @@ class VisitanteEvaluador(TerraVisitor):
                 "agregar": self._f_agregar,
                 "insertar": self._f_insertar,
                 "quitar": self._f_quitar,
+                "regresion_lineal": self._f_regresion_lineal,
+                "regresion_multiple": self._f_regresion_multiple,
+                "predecir": self._f_predecir,
+                "predecir_multiple": self._f_predecir_multiple,
+                "coeficientes": self._f_coeficientes,
+                "f_cuadrado": self._f_cuadrado,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
@@ -1235,3 +1242,93 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(
                 f"indice {indice} fuera de rango (longitud {len(lista)})", linea)
         return lista[:indice] + lista[indice + 1:]  
+    # -----------------------------------------------------------------
+    # Predicciones y regresiones
+    # -----------------------------------------------------------------
+    def _f_regresion_lineal(self, args, linea):
+        """
+        regresion_lineal(xs, ys) -> modelo
+        Entrena una regresion lineal simple y devuelve el modelo como diccionario.
+        """
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "regresion_lineal() espera dos listas: xs e ys", linea)
+        try:
+            return reg.entrenar_simple(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_regresion_multiple(self, args, linea):
+        """
+        regresion_multiple(X, ys) -> modelo
+        X es una lista de listas (cada sublista es una observacion).
+        """
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "regresion_multiple() espera una matriz X y una lista ys", linea)
+        try:
+            return reg.entrenar_multiple(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_predecir(self, args, linea):
+        """
+        predecir(modelo, x) -> decimal
+        Aplica el modelo simple a un valor de X.
+        """
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "predecir() espera un modelo y un valor x", linea)
+        try:
+            return reg.predecir_simple(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_predecir_multiple(self, args, linea):
+        """
+        predecir_multiple(modelo, [x1, x2, ...]) -> decimal
+        Aplica el modelo multiple a un vector de predictores.
+        """
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "predecir_multiple() espera un modelo y una lista de predictores",
+                linea)
+        try:
+            return reg.predecir_multiple(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_coeficientes(self, args, linea):
+        """
+        coeficientes(modelo) -> lista
+        Devuelve [intercepto, pendiente] para simple,
+        o [b0, b1, b2, ...] para multiple.
+        """
+        if len(args) != 1 or not isinstance(args[0], dict):
+            raise ErrorSemantico(
+                "coeficientes() espera un modelo entrenado", linea)
+        modelo = args[0]
+        if modelo.get("tipo") == "simple":
+            return [modelo["intercepto"], modelo["pendiente"]]
+        if modelo.get("tipo") == "multiple":
+            return modelo["coeficientes"]
+        raise ErrorSemantico(
+            "coeficientes() recibio un valor que no es un modelo", linea)
+
+
+    def _f_r_cuadrado(self, args, linea):
+        """
+        r_cuadrado(modelo) -> decimal entre 0 y 1
+        """
+        if len(args) != 1 or not isinstance(args[0], dict):
+            raise ErrorSemantico(
+                "r_cuadrado() espera un modelo entrenado", linea)
+        modelo = args[0]
+        if "r_cuadrado" not in modelo:
+            raise ErrorSemantico(
+                "r_cuadrado() recibio un valor que no es un modelo", linea)
+        return modelo["r_cuadrado"]

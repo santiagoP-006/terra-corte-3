@@ -920,7 +920,7 @@ class VisitanteEvaluador(TerraVisitor):
                 "predecir": self._f_predecir,
                 "predecir_multiple": self._f_predecir_multiple,
                 "coeficientes": self._f_coeficientes,
-                "f_cuadrado": self._f_r_cuadrado,
+                "r_cuadrado": self._f_r_cuadrado,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)

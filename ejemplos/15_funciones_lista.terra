@@ -1,0 +1,11 @@
+var i = 0
+var numeros = []
+mientras i < 10:
+
+	numeros = agregar(numeros, aleatorio()*10)
+	
+	i = i+1
+fin
+
+mostrar(numeros)
+

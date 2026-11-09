@@ -1,0 +1,19 @@
+# ejemplos/19_regresion.terra
+# Prediccion de emisiones de CO2 con regresion lineal
+
+# --- Regresion simple: anio -> co2 ---
+fijo anios = [2015, 2018, 2021, 2023]
+fijo co2   = [86.2, 92.5, 79.8, 88.1]
+
+fijo modelo = regresion_lineal(anios, co2)
+mostrar(modelo)
+mostrar("R^2:", r_cuadrado(modelo))
+mostrar("Prediccion 2025:", predecir(modelo, 2025))
+mostrar("Coeficientes:", coeficientes(modelo))
+
+# --- Regresion multiple: [anio, poblacion] -> co2 ---
+fijo X = [[2015, 46700000],[2018, 48300000],[2021, 51500000],[2023, 52300000]]
+
+fijo modelo2 = regresion_multiple(X, co2)
+mostrar(modelo2)
+mostrar("Prediccion 2025 con 53M hab:", predecir_multiple(modelo2, [2025, 53000000]))

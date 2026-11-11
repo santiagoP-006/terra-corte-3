@@ -1382,26 +1382,26 @@ class VisitanteEvaluador(TerraVisitor):
         arbol_decision(X, ys, max_profundidad)
         arbol_decision(X, ys, max_profundidad, min_muestras)
         """
-    if len(args) < 2 or len(args) > 4:
-        raise ErrorSemantico(
-            "arbol_decision() espera entre 2 y 4 argumentos: "
-            "X, ys [, max_profundidad] [, min_muestras]", linea)
-
-    X   = args[0]
-    ys  = args[1]
-    max_prof     = args[2] if len(args) > 2 else 5
-    min_muestras = args[3] if len(args) > 3 else 2
-
-    for param, nombre in [(max_prof, "max_profundidad"),
-                          (min_muestras, "min_muestras")]:
-        if isinstance(param, bool) or not isinstance(param, int) or param < 1:
+        if len(args) < 2 or len(args) > 4:
             raise ErrorSemantico(
-                f"arbol_decision(): {nombre} debe ser un entero >= 1",
-                linea)
-    try:
-        return ad.entrenar_arbol(X, ys, max_prof, min_muestras)
-    except ErrorDatos as e:
-        raise ErrorSemantico(str(e), linea)
+                "arbol_decision() espera entre 2 y 4 argumentos: "
+                "X, ys [, max_profundidad] [, min_muestras]", linea)
+
+        X   = args[0]
+        ys  = args[1]
+        max_prof     = args[2] if len(args) > 2 else 5
+        min_muestras = args[3] if len(args) > 3 else 2
+
+        for param, nombre in [(max_prof, "max_profundidad"),
+                            (min_muestras, "min_muestras")]:
+            if isinstance(param, bool) or not isinstance(param, int) or param < 1:
+                raise ErrorSemantico(
+                    f"arbol_decision(): {nombre} debe ser un entero >= 1",
+                    linea)
+        try:
+            return ad.entrenar_arbol(X, ys, max_prof, min_muestras)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
 
 
     def _f_clasificar(self, args, linea):

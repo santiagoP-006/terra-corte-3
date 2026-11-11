@@ -28,6 +28,7 @@ Tipos de Terra y su representacion en Python:
 import sys
 import os
 from src import regresion as reg
+from src import arbol_decision as ad
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -112,6 +113,20 @@ def formatear(valor, anidado=False) -> str:
     if isinstance(valor, dict) and "tipo" in valor:
         return _formatear_modelo(valor)
     return str(valor)
+
+    if isinstance(valor, dict) and valor.get("tipo") == "arbol_decision":
+        internos, hojas = ad._contar_nodos(valor["raiz"])
+        prof = ad._profundidad_real(valor["raiz"])
+        return (f"Arbol de decision  "
+                f"(n={valor['n']}, p={valor['p']}, "
+                f"clases={valor['clases']})\n"
+                f"  Profundidad: {prof}  |  "
+                f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
+                f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
+
+    if isinstance(valor, dict) and "exactitud" in valor:
+        return (f"Evaluacion: exactitud={round(valor['exactitud']*100, 2)}%  "
+                f"({valor['correctas']}/{valor['total']})")
 
 def _formatear_modelo(modelo: dict) -> str:
     """Representacion legible de un modelo de regresion."""
@@ -921,6 +936,12 @@ class VisitanteEvaluador(TerraVisitor):
                 "predecir_multiple": self._f_predecir_multiple,
                 "coeficientes": self._f_coeficientes,
                 "r_cuadrado": self._f_r_cuadrado,
+                "arbol_decision":    self._f_arbol_decision,
+                "clasificar":        self._f_clasificar,
+                "clasificar_lote":   self._f_clasificar_lote,
+                "evaluar_arbol":     self._f_evaluar_arbol,
+                "exactitud":         self._f_exactitud,
+                "mostrar_arbol":     self._f_mostrar_arbol,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
@@ -1354,3 +1375,117 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(
                 "r_cuadrado() recibio un valor que no es un modelo", linea)
         return modelo["r_cuadrado"]
+    
+    def _f_arbol_decision(self, args, linea):
+        """
+        arbol_decision(X, ys)
+        arbol_decision(X, ys, max_profundidad)
+        arbol_decision(X, ys, max_profundidad, min_muestras)
+        """
+    if len(args) < 2 or len(args) > 4:
+        raise ErrorSemantico(
+            "arbol_decision() espera entre 2 y 4 argumentos: "
+            "X, ys [, max_profundidad] [, min_muestras]", linea)
+
+    X   = args[0]
+    ys  = args[1]
+    max_prof     = args[2] if len(args) > 2 else 5
+    min_muestras = args[3] if len(args) > 3 else 2
+
+    for param, nombre in [(max_prof, "max_profundidad"),
+                          (min_muestras, "min_muestras")]:
+        if isinstance(param, bool) or not isinstance(param, int) or param < 1:
+            raise ErrorSemantico(
+                f"arbol_decision(): {nombre} debe ser un entero >= 1",
+                linea)
+    try:
+        return ad.entrenar_arbol(X, ys, max_prof, min_muestras)
+    except ErrorDatos as e:
+        raise ErrorSemantico(str(e), linea)
+
+
+    def _f_clasificar(self, args, linea):
+        """clasificar(modelo, [x1, x2, ...]) -> clase predicha"""
+        if len(args) != 2 or not isinstance(args[1], list):
+            raise ErrorSemantico(
+                "clasificar() espera un modelo y una lista de predictores",
+                linea)
+        try:
+            return ad.predecir_clase(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_clasificar_lote(self, args, linea):
+        """clasificar_lote(modelo, X) -> lista de clases predichas"""
+        if len(args) != 2 or not isinstance(args[1], list):
+            raise ErrorSemantico(
+                "clasificar_lote() espera un modelo y una lista de observaciones",
+                linea)
+        try:
+            return ad.predecir_lote(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_evaluar_arbol(self, args, linea):
+        """evaluar_arbol(modelo, X, ys) -> diccionario con metricas"""
+        if len(args) != 3:
+            raise ErrorSemantico(
+                "evaluar_arbol() espera un modelo, una matriz X y una lista ys",
+                linea)
+        try:
+            return ad.evaluar_modelo(args[0], args[1], args[2])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_exactitud(self, args, linea):
+        """exactitud(resultado_evaluar) -> decimal entre 0 y 1"""
+        if len(args) != 1 or not isinstance(args[0], dict):
+            raise ErrorSemantico(
+                "exactitud() espera el resultado de evaluar_arbol()", linea)
+        if "exactitud" not in args[0]:
+            raise ErrorSemantico(
+                "exactitud() recibio un valor que no es un resultado de "
+                "evaluacion", linea)
+        return args[0]["exactitud"]
+
+
+    def _f_mostrar_arbol(self, args, linea):
+        """
+        mostrar_arbol(modelo)
+        mostrar_arbol(modelo, [nombre_col1, nombre_col2, ...])
+        Imprime el arbol en texto y devuelve nulo.
+        """
+        if len(args) < 1 or len(args) > 2:
+            raise ErrorSemantico(
+                "mostrar_arbol() espera un modelo y opcionalmente "
+                "una lista de nombres de columnas", linea)
+        try:
+            ad._validar_modelo(args[0])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+        nombres = args[1] if len(args) == 2 else None
+        if nombres is not None and not isinstance(nombres, list):
+            raise ErrorSemantico(
+                "el segundo argumento de mostrar_arbol() debe ser una lista "
+                "de textos", linea)
+
+        modelo = args[0]
+        internos, hojas = ad._contar_nodos(modelo["raiz"])
+        prof_real       = ad._profundidad_real(modelo["raiz"])
+
+        encabezado = (f"Arbol de decision "
+                    f"(n={modelo['n']}, p={modelo['p']}, "
+                    f"clases={modelo['clases']})\n"
+                    f"Profundidad real: {prof_real}  |  "
+                    f"Nodos internos: {internos}  |  "
+                    f"Hojas: {hojas}\n"
+                    + "-" * 60)
+        arbol_txt = ad._imprimir_arbol(modelo["raiz"], nombres,
+                                    prefijo="", es_izquierda=True)
+        print(encabezado)
+        print(arbol_txt)
+        return None

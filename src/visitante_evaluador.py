@@ -29,6 +29,11 @@ import sys
 import os
 from src import regresion as reg
 from src import arbol_decision as ad
+from src import terra_pandas as pd
+from src import terra_numpy  as np
+from src import terra_plot   as plt
+from src.terra_pandas import DataFrame
+from src.terra_numpy  import Array
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -85,6 +90,11 @@ def nombre_tipo(valor) -> str:
         return "funcion"
     return "desconocido"
 
+    if isinstance(valor, DataFrame):
+        return "dataframe"
+    if isinstance(valor, Array):
+        return "array"
+
 
 def es_numero(valor) -> bool:
     """
@@ -126,6 +136,17 @@ def formatear(valor, anidado=False) -> str:
 
     if isinstance(valor, dict) and "exactitud" in valor:
         return (f"Evaluacion: exactitud={round(valor['exactitud']*100, 2)}%  "
+                f"({valor['correctas']}/{valor['total']})")
+
+
+    if isinstance(valor, DataFrame):
+        return valor.como_texto()
+    
+    if isinstance(valor, Array):
+        return valor.como_texto()
+    
+    if isinstance(valor, dict) and "exactitud" in valor:
+        return (f"Evaluacion: exactitud={round(valor['exactitud']*100,2)}%  "
                 f"({valor['correctas']}/{valor['total']})")
 
 def _formatear_modelo(modelo: dict) -> str:
@@ -942,6 +963,54 @@ class VisitanteEvaluador(TerraVisitor):
                 "evaluar_arbol":     self._f_evaluar_arbol,
                 "exactitud":         self._f_exactitud,
                 "mostrar_arbol":     self._f_mostrar_arbol,
+
+                # --- pandas ---
+                "dataframe":        self._f_dataframe,
+                "desde_tabla":      self._f_desde_tabla,
+                "head":             self._f_head,
+                "tail":             self._f_tail,
+                "info_df":          self._f_info_df,
+                "sample":           self._f_sample,
+                "merge":            self._f_merge,
+                "melt":             self._f_melt,
+                "pivot":            self._f_pivot,
+                "reemplazar":       self._f_reemplazar,
+                "duplicados_df":    self._f_duplicados_df,
+                "correlacion":      self._f_correlacion,
+
+                # --- numpy ---
+                "array":            self._f_array,
+                "zeros":            self._f_zeros,
+                "ones":             self._f_ones,
+                "identidad":        self._f_identidad,
+                "rango_array":      self._f_rango_array,
+                "linspace":         self._f_linspace,
+                "reshape":          self._f_reshape,
+                "flatten":          self._f_flatten,
+                "concatenar":       self._f_concatenar,
+                "transpuesta":      self._f_transpuesta,
+                "producto_mat":     self._f_producto_mat,
+                "dot":              self._f_dot,
+                "determinante":     self._f_determinante,
+                "traza":            self._f_traza,
+                "norma":            self._f_norma,
+                "suma_array":       self._f_suma_array,
+                "media_array":      self._f_media_array,
+                "min_array":        self._f_min_array,
+                "max_array":        self._f_max_array,
+                "raiz_array":       self._f_raiz_array,
+                "abs_array":        self._f_abs_array,
+
+                # --- plot ---
+                "graficar_lineas":      self._f_graficar_lineas,
+                "graficar_barras":      self._f_graficar_barras,
+                "graficar_dispersion":  self._f_graficar_dispersion,
+                "graficar_histograma":  self._f_graficar_histograma,
+                "graficar_caja":        self._f_graficar_caja,
+                "exportar_lineas":      self._f_exportar_lineas,
+                "exportar_barras":      self._f_exportar_barras,
+                "exportar_dispersion":  self._f_exportar_dispersion,
+                "exportar_histograma":  self._f_exportar_histograma,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
@@ -1488,4 +1557,346 @@ class VisitanteEvaluador(TerraVisitor):
                                     prefijo="", es_izquierda=True)
         print(encabezado)
         print(arbol_txt)
+        return None
+
+
+# --- Implementacion de funciones de pandas ---
+    def _f_dataframe(self, args, linea):
+        if len(args) != 1 or not isinstance(args[0], dict):
+            raise ErrorSemantico(
+                "dataframe() espera un diccionario {columna: lista}", linea)
+        # En Terra los diccionarios no existen como tipo nativo, pero los
+        # modelos son dicts. Se usa desde Terra pasando listas paralelas:
+        # dataframe([col1, col2], [[v1,v2,...], [v1,v2,...]])
+        raise ErrorSemantico(
+            "usa dataframe_cols(nombres, listas) para crear un DataFrame", linea)
+
+
+    def _f_dataframe_cols(self, args, linea):
+        """dataframe_cols([col1, col2], [[vals1], [vals2]]) -> DataFrame"""
+        if (len(args) != 2
+                or not isinstance(args[0], list)
+                or not isinstance(args[1], list)):
+            raise ErrorSemantico(
+                "dataframe_cols() espera una lista de nombres y una lista "
+                "de listas de valores", linea)
+        nombres = args[0]
+        listas  = args[1]
+        if len(nombres) != len(listas):
+            raise ErrorSemantico(
+                "dataframe_cols(): el numero de nombres y de listas debe coincidir",
+                linea)
+        try:
+            datos = {nombres[i]: listas[i] for i in range(len(nombres))}
+            return pd.crear_dataframe(datos)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_desde_tabla(self, args, linea):
+        if len(args) != 1 or not isinstance(args[0], Tabla):
+            raise ErrorSemantico("desde_tabla() espera una Tabla", linea)
+        return pd.desde_tabla(args[0])
+
+
+    def _f_head(self, args, linea):
+        n = args[1] if len(args) == 2 else 5
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ErrorSemantico("head() espera un entero >= 1", linea)
+        try:
+            return pd.head(args[0], n)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_tail(self, args, linea):
+        n = args[1] if len(args) == 2 else 5
+        try:
+            return pd.tail(args[0], n)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_info_df(self, args, linea):
+        if len(args) != 1:
+            raise ErrorSemantico("info_df() espera un DataFrame", linea)
+        try:
+            print(pd.info(args[0]))
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_sample(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico("sample() espera un DataFrame y n", linea)
+        semilla = args[2] if len(args) == 3 else None
+        try:
+            return pd.sample(args[0], args[1], semilla)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_merge(self, args, linea):
+        tipo = args[3] if len(args) == 4 else "inner"
+        if not isinstance(tipo, str) or tipo not in ("inner","left","right","outer"):
+            raise ErrorSemantico(
+                "merge(): el tipo debe ser 'inner', 'left', 'right' u 'outer'",
+                linea)
+        try:
+            return pd.merge(args[0], args[1], args[2], tipo)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_melt(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico(
+                "melt() espera un DataFrame y una lista de columnas id", linea)
+        nom_var = args[2] if len(args) > 2 else "variable"
+        nom_val = args[3] if len(args) > 3 else "valor"
+        try:
+            return pd.melt(args[0], args[1], nom_var, nom_val)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_pivot(self, args, linea):
+        if len(args) != 4:
+            raise ErrorSemantico(
+                "pivot() espera DataFrame, indice, columna, valor", linea)
+        try:
+            return pd.pivot(args[0], args[1], args[2], args[3])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_reemplazar(self, args, linea):
+        if len(args) != 4:
+            raise ErrorSemantico(
+                "reemplazar() espera DataFrame, columna, viejo, nuevo", linea)
+        try:
+            return pd.replace_val(args[0], args[1], args[2], args[3])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_duplicados_df(self, args, linea):
+        if len(args) != 1:
+            raise ErrorSemantico("duplicados_df() espera un DataFrame", linea)
+        try:
+            return pd.duplicados(args[0])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+
+    def _f_correlacion(self, args, linea):
+        if len(args) != 1:
+            raise ErrorSemantico("correlacion() espera un DataFrame", linea)
+        try:
+            return pd.corr(args[0])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+# -- Implementacion de funciones de numpy ---
+    def _wrap_np(self, f, args, linea, nombre):
+        try:
+            return f(*args)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        except TypeError:
+            raise ErrorSemantico(f"{nombre}(): argumentos incorrectos", linea)
+
+    def _f_array(self, args, linea):
+        if len(args) != 1 or not isinstance(args[0], list):
+            raise ErrorSemantico("array() espera una lista", linea)
+        return self._wrap_np(np.array, args, linea, "array")
+
+    def _f_zeros(self, args, linea):
+        return self._wrap_np(np.zeros, args, linea, "zeros")
+
+    def _f_ones(self, args, linea):
+        return self._wrap_np(np.ones, args, linea, "ones")
+
+    def _f_identidad(self, args, linea):
+        return self._wrap_np(np.identidad, args, linea, "identidad")
+
+    def _f_rango_array(self, args, linea):
+        return self._wrap_np(np.rango, args, linea, "rango_array")
+
+    def _f_linspace(self, args, linea):
+        return self._wrap_np(np.linspace, args, linea, "linspace")
+
+    def _f_reshape(self, args, linea):
+        return self._wrap_np(np.reshape, args, linea, "reshape")
+
+    def _f_flatten(self, args, linea):
+        return self._wrap_np(np.flatten, args, linea, "flatten")
+
+    def _f_concatenar(self, args, linea):
+        return self._wrap_np(np.concatenar, args, linea, "concatenar")
+
+    def _f_transpuesta(self, args, linea):
+        return self._wrap_np(np.transpuesta, args, linea, "transpuesta")
+
+    def _f_producto_mat(self, args, linea):
+        return self._wrap_np(np.producto_matricial, args, linea, "producto_mat")
+
+    def _f_dot(self, args, linea):
+        return self._wrap_np(np.dot, args, linea, "dot")
+
+    def _f_determinante(self, args, linea):
+        return self._wrap_np(np.determinante, args, linea, "determinante")
+
+    def _f_traza(self, args, linea):
+        return self._wrap_np(np.traza, args, linea, "traza")
+
+    def _f_norma(self, args, linea):
+        return self._wrap_np(np.norma, args, linea, "norma")
+
+    def _f_suma_array(self, args, linea):
+        return self._wrap_np(np.suma_array, args, linea, "suma_array")
+
+    def _f_media_array(self, args, linea):
+        return self._wrap_np(np.media_array, args, linea, "media_array")
+
+    def _f_min_array(self, args, linea):
+        return self._wrap_np(np.min_array, args, linea, "min_array")
+
+    def _f_max_array(self, args, linea):
+        return self._wrap_np(np.max_array, args, linea, "max_array")
+
+    def _f_raiz_array(self, args, linea):
+        return self._wrap_np(np.raiz_array, args, linea, "raiz_array")
+
+    def _f_abs_array(self, args, linea):
+        return self._wrap_np(np.abs_array, args, linea, "abs_array")
+
+# --- Implementacion de funciones de graficado ---
+    def _f_graficar_lineas(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico(
+                "graficar_lineas() espera xs, ys [, titulo] [, eje_x] [, eje_y]",
+                linea)
+        titulo = args[2] if len(args) > 2 else ""
+        ej_x   = args[3] if len(args) > 3 else "x"
+        ej_y   = args[4] if len(args) > 4 else "y"
+        try:
+            plt.grafica_lineas_ascii(args[0], args[1], titulo, ej_x, ej_y)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_graficar_barras(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico(
+                "graficar_barras() espera categorias, valores [, titulo] [, eje_y]",
+                linea)
+        titulo = args[2] if len(args) > 2 else ""
+        ej_y   = args[3] if len(args) > 3 else "valor"
+        try:
+            plt.grafica_barras_ascii(args[0], args[1], titulo, ej_y)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_graficar_dispersion(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico(
+                "graficar_dispersion() espera xs, ys [, titulo]", linea)
+        titulo = args[2] if len(args) > 2 else ""
+        ej_x   = args[3] if len(args) > 3 else "x"
+        ej_y   = args[4] if len(args) > 4 else "y"
+        try:
+            plt.grafica_dispersion_ascii(args[0], args[1], titulo, ej_x, ej_y)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_graficar_histograma(self, args, linea):
+        if len(args) < 1:
+            raise ErrorSemantico("graficar_histograma() espera una lista", linea)
+        bins   = args[1] if len(args) > 1 else 10
+        titulo = args[2] if len(args) > 2 else ""
+        ej_x   = args[3] if len(args) > 3 else "valor"
+        try:
+            plt.grafica_histograma_ascii(args[0], bins, titulo, ej_x)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_graficar_caja(self, args, linea):
+        if len(args) < 1:
+            raise ErrorSemantico("graficar_caja() espera una lista", linea)
+        titulo = args[1] if len(args) > 1 else ""
+        etiq   = args[2] if len(args) > 2 else "valor"
+        try:
+            plt.grafica_caja_ascii(args[0], titulo, etiq)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_exportar_lineas(self, args, linea):
+        if len(args) < 3:
+            raise ErrorSemantico(
+                "exportar_lineas() espera xs, ys, ruta [, titulo] [, eje_x] [, eje_y]",
+                linea)
+        titulo = args[3] if len(args) > 3 else ""
+        ej_x   = args[4] if len(args) > 4 else "x"
+        ej_y   = args[5] if len(args) > 5 else "y"
+        ys     = args[1] if isinstance(args[1][0], list) else [args[1]]
+        etiq   = ["serie"]
+        try:
+            plt.exportar_lineas_svg(args[0], ys, etiq, titulo, ej_x, ej_y, args[2])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_exportar_barras(self, args, linea):
+        if len(args) < 3:
+            raise ErrorSemantico(
+                "exportar_barras() espera categorias, valores, ruta [, titulo]",
+                linea)
+        titulo = args[3] if len(args) > 3 else ""
+        ej_x   = args[4] if len(args) > 4 else "categoria"
+        ej_y   = args[5] if len(args) > 5 else "valor"
+        try:
+            plt.exportar_barras_svg(args[0], args[1], titulo, ej_x, ej_y, args[2])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_exportar_dispersion(self, args, linea):
+        if len(args) < 3:
+            raise ErrorSemantico(
+                "exportar_dispersion() espera xs, ys, ruta [, titulo]", linea)
+        titulo = args[3] if len(args) > 3 else ""
+        ej_x   = args[4] if len(args) > 4 else "x"
+        ej_y   = args[5] if len(args) > 5 else "y"
+        try:
+            plt.exportar_dispersion_svg(args[0], args[1], titulo, ej_x, ej_y, args[2])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        return None
+
+
+    def _f_exportar_histograma(self, args, linea):
+        if len(args) < 2:
+            raise ErrorSemantico(
+                "exportar_histograma() espera lista, ruta [, bins] [, titulo]",
+                linea)
+        bins   = args[2] if len(args) > 2 else 10
+        titulo = args[3] if len(args) > 3 else ""
+        ej_x   = args[4] if len(args) > 4 else "valor"
+        try:
+            plt.exportar_histograma_svg(args[0], bins, titulo, ej_x, args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
         return None

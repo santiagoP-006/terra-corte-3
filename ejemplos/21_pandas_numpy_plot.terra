@@ -1,0 +1,99 @@
+# =====================================================================
+# PANDAS — DataFrames
+# =====================================================================
+
+fijo datos = cargar "datos/emisiones_ejemplo.csv"
+fijo df    = desde_tabla(datos)
+
+info_df(df)
+
+mostrar(head(df, 3))
+mostrar(tail(df, 3))
+
+fijo df2 = reemplazar(df, "pais", "Colombia", "COL")
+mostrar(head(df2, 2))
+
+fijo mat_corr = correlacion(df)
+mostrar(mat_corr)
+
+fijo largo = melt(df, ["pais", "anio"], "indicador", "valor")
+mostrar(head(largo, 5))
+
+# =====================================================================
+# NUMPY — Arrays y algebra lineal
+# =====================================================================
+
+fijo v = array([1.0, 2.0, 3.0])
+mostrar(v)
+
+fijo A = array([[1.0, 2.0], [3.0, 4.0]])
+fijo B = array([[5.0, 6.0], [7.0, 8.0]])
+
+mostrar("A + B:")
+mostrar(sumar_arrays(A, B))
+
+mostrar("A @ B (producto matricial):")
+mostrar(producto_mat(A, B))
+
+mostrar("Transpuesta de A:")
+mostrar(transpuesta(A))
+
+mostrar("Determinante de A:", determinante(A))
+mostrar("Traza de A:", traza(A))
+mostrar("Norma de v:", norma(v))
+
+fijo I = identidad(3)
+mostrar("Identidad 3x3:")
+mostrar(I)
+
+fijo xs_arr = linspace(0.0, 1.0, 5)
+mostrar("linspace(0, 1, 5):", xs_arr)
+
+fijo r = rango_array(0.0, 10.0, 2.0)
+mostrar("rango(0, 10, 2):", r)
+
+# =====================================================================
+# PLOT — Graficas
+# =====================================================================
+
+fijo anios  = [2015, 2018, 2021, 2023]
+fijo co2_co = [86.2, 92.5, 79.8, 88.1]
+fijo co2_pe = [52.4, 57.9, 50.3, 55.6]
+
+# Grafica en terminal
+graficar_lineas(anios, co2_co, "CO2 Colombia", "Año", "Mt CO2")
+
+# Barras
+graficar_barras(
+    ["Colombia", "Peru", "Chile", "Ecuador"],
+    [346.6, 216.2, 336.3, 156.3],
+    "CO2 acumulado 2015-2023", "Mt CO2"
+)
+
+# Dispersion
+graficar_dispersion(co2_co, co2_pe, "CO2 Colombia vs Peru", "Colombia", "Peru")
+
+# Histograma
+graficar_histograma(
+    [86.2, 92.5, 79.8, 88.1, 52.4, 57.9, 50.3, 55.6,
+     79.1, 88.4, 83.6, 85.2, 38.7, 41.2, 36.9, 39.5],
+    5, "Distribucion de emisiones"
+)
+
+# Caja
+graficar_caja(
+    [86.2, 92.5, 79.8, 88.1, 52.4, 57.9, 50.3, 55.6],
+    "Box plot CO2", "Mt CO2"
+)
+
+# Exportar SVG
+exportar_lineas(anios, co2_co, "salidas/co2_lineas.svg",
+                "CO2 Colombia", "Año", "Mt CO2")
+exportar_barras(
+    ["Colombia", "Peru", "Chile", "Ecuador"],
+    [346.6, 216.2, 336.3, 156.3],
+    "salidas/co2_barras.svg",
+    "CO2 acumulado", "País", "Mt CO2"
+)
+exportar_dispersion(co2_co, co2_pe, "salidas/co2_scatter.svg",
+                    "CO2 Colombia vs Peru", "Colombia", "Peru")

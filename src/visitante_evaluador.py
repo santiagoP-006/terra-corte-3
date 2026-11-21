@@ -1000,6 +1000,12 @@ class VisitanteEvaluador(TerraVisitor):
                 "max_array":        self._f_max_array,
                 "raiz_array":       self._f_raiz_array,
                 "abs_array":        self._f_abs_array,
+                # --- operaciones aritméticas de arrays ---
+                "sumar_arrays":      self._f_sumar_arrays,
+                "restar_arrays":     self._f_restar_arrays,
+                "multiplicar_arr":   self._f_multiplicar_arr,
+                "dividir_arr":       self._f_dividir_arr,
+                "potencia_arr":      self._f_potencia_arr,
 
                 # --- plot ---
                 "graficar_lineas":      self._f_graficar_lineas,
@@ -1900,3 +1906,51 @@ class VisitanteEvaluador(TerraVisitor):
         except ErrorDatos as e:
             raise ErrorSemantico(str(e), linea)
         return None
+
+    def _f_sumar_arrays(self, args, linea):
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "sumar_arrays() espera dos arrays o un array y un número", linea)
+        try:
+            return np.sumar_arrays(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+    def _f_restar_arrays(self, args, linea):
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "restar_arrays() espera dos arrays o un array y un número", linea)
+        try:
+            return np.restar_arrays(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+    def _f_multiplicar_arr(self, args, linea):
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "multiplicar_arr() espera dos arrays o un array y un número", linea)
+        try:
+            return np.multiplicar_arrays(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+    def _f_dividir_arr(self, args, linea):
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "dividir_arr() espera dos arrays o un array y un número", linea)
+        try:
+            return np.dividir_arrays(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+
+    def _f_potencia_arr(self, args, linea):
+        if len(args) != 2:
+            raise ErrorSemantico(
+                "potencia_arr() espera un array y un exponente numérico", linea)
+        if not isinstance(args[1], (int, float)) or isinstance(args[1], bool):
+            raise ErrorSemantico(
+                "potencia_arr(): el exponente debe ser un número", linea)
+        try:
+            return np.potencia_array(args[0], args[1])
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)

@@ -36,11 +36,10 @@ mostrar("A @ B (producto matricial):")
 mostrar(producto_mat(A, B))
 
 mostrar("Transpuesta de A:")
-mostrar(transpuesta(A))
-
-mostrar("Determinante de A:", determinante(A))
-mostrar("Traza de A:", traza(A))
-mostrar("Norma de v:", norma(v))
+# mostrar(transpuesta(A))
+# mostrar("Determinante de A:", determinante(A))
+# mostrar("Traza de A:", traza(A))
+# mostrar("Norma de v:", norma(v))
 
 fijo I = identidad(3)
 mostrar("Identidad 3x3:")

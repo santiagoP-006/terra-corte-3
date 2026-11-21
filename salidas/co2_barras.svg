@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" style="background:#fff;font-family:monospace">
+  <text x="300" y="20" text-anchor="middle" font-size="14" font-weight="bold">CO2 acumulado</text>
+  <!-- ejes -->
+  <line x1="60" y1="60" x2="60" y2="340" stroke="#333" stroke-width="1.5"/>
+  <line x1="60" y1="340" x2="570" y2="340" stroke="#333" stroke-width="1.5"/>
+  <text x="55" y="60" text-anchor="end" font-size="10">346.60</text>
+  <text x="55" y="340" text-anchor="end" font-size="10">0.00</text>
+  <text x="60" y="355" font-size="10">0</text>
+  <text x="570" y="355" text-anchor="end" font-size="10">3</text>
+  <text x="315" y="395" text-anchor="middle" font-size="11">País</text>
+  <text x="12" y="200" text-anchor="middle" font-size="11" transform="rotate(-90,12,200)">Mt CO2</text>
+  <rect x="79.1" y="70.0" width="89.2" height="270.0" fill="#2196F3" opacity="0.8"/>
+  <text x="123.8" y="354" text-anchor="middle" font-size="9">Colombia</text>
+  <text x="123.8" y="67.0" text-anchor="middle" font-size="9">346.60</text>
+  <rect x="206.6" y="171.6" width="89.2" height="168.4" fill="#F44336" opacity="0.8"/>
+  <text x="251.2" y="354" text-anchor="middle" font-size="9">Peru</text>
+  <text x="251.2" y="168.6" text-anchor="middle" font-size="9">216.20</text>
+  <rect x="334.1" y="78.0" width="89.2" height="262.0" fill="#4CAF50" opacity="0.8"/>
+  <text x="378.8" y="354" text-anchor="middle" font-size="9">Chile</text>
+  <text x="378.8" y="75.0" text-anchor="middle" font-size="9">336.30</text>
+  <rect x="461.6" y="218.2" width="89.2" height="121.8" fill="#FF9800" opacity="0.8"/>
+  <text x="506.2" y="354" text-anchor="middle" font-size="9">Ecuador</text>
+  <text x="506.2" y="215.2" text-anchor="middle" font-size="9">156.30</text>
+</svg>

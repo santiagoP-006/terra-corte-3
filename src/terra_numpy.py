@@ -257,47 +257,64 @@ def abs_array(a: Array) -> Array:
 # =====================================================================
 
 def producto_matricial(a: Array, b: Array) -> Array:
-    """Multiplicacion matricial A @ B."""
+    """Multiplicación matricial A @ B entre dos Arrays 2D."""
+    if not isinstance(a, Array) or not isinstance(b, Array):
+        raise ErrorDatos("producto_matricial(): se necesitan dos arrays")
     if not a.es_2d or not b.es_2d:
         raise ErrorDatos(
-            "producto_matricial(): ambos arrays deben ser 2D")
+            "producto_matricial(): ambos arrays deben ser 2D; "
+            "crea matrices con array([[fila1], [fila2], ...])")
     if a.forma[1] != b.forma[0]:
         raise ErrorDatos(
             f"producto_matricial(): las formas {a.forma} y {b.forma} "
-            f"son incompatibles")
+            f"son incompatibles (columnas de A != filas de B)")
     m, k, n = a.forma[0], a.forma[1], b.forma[1]
     datos   = []
     for i in range(m):
         for j in range(n):
-            s = sum(a.datos[i*k+p] * b.datos[p*n+j] for p in range(k))
+            s = sum(a.datos[i * k + p] * b.datos[p * n + j]
+                    for p in range(k))
             datos.append(s)
     return Array(datos, (m, n))
 
 
 def transpuesta(a: Array) -> Array:
-    """Transpone un array 2D."""
-    if not a.es_2d:
-        raise ErrorDatos("transpuesta(): el array debe ser 2D")
-    m, n = a.forma
-    datos = [a.datos[i*n+j] for j in range(n) for i in range(m)]
+    """Transpone un Array 2D."""
+    if not isinstance(a, Array) or not a.es_2d:
+        raise ErrorDatos(
+            "transpuesta(): se necesita un array 2D; "
+            "crea uno con array([[fila1], [fila2], ...])")
+    m, n  = a.forma
+    datos = [a.datos[i * n + j] for j in range(n) for i in range(m)]
     return Array(datos, (n, m))
 
 
 def traza(a: Array) -> float:
-    """Suma de la diagonal principal."""
-    if not a.es_2d or a.forma[0] != a.forma[1]:
-        raise ErrorDatos("traza(): se necesita una matriz cuadrada")
+    """Suma de la diagonal principal de un Array 2D cuadrado."""
+    if not isinstance(a, Array) or not a.es_2d:
+        raise ErrorDatos(
+            "traza(): se necesita un array 2D cuadrado")
+    if a.forma[0] != a.forma[1]:
+        raise ErrorDatos(
+            f"traza(): la matriz debe ser cuadrada "
+            f"(se recibio {a.forma[0]}x{a.forma[1]})")
     n = a.forma[0]
-    return sum(a.datos[i*n+i] for i in range(n))
+    return sum(a.datos[i * n + i] for i in range(n))
+
 
 
 def determinante(a: Array) -> float:
-    """Determinante por expansion de Laplace (matrices hasta 4x4 practicas)."""
-    if not a.es_2d or a.forma[0] != a.forma[1]:
-        raise ErrorDatos("determinante(): se necesita una matriz cuadrada")
+    """Determinante de un Array 2D cuadrado por eliminación gaussiana."""
+    if not isinstance(a, Array) or not a.es_2d:
+        raise ErrorDatos(
+            "determinante(): se necesita un array 2D cuadrado")
+    if a.forma[0] != a.forma[1]:
+        raise ErrorDatos(
+            f"determinante(): la matriz debe ser cuadrada "
+            f"(se recibio {a.forma[0]}x{a.forma[1]})")
     n = a.forma[0]
-    # Eliminacion gaussiana con pivoteo parcial
-    M = [a.datos[i*n:(i+1)*n][:] for i in range(n)]
+    # Copia de la matriz como lista de filas mutables
+    M     = [a.datos[i * n:(i + 1) * n][:] for i in range(n)]
     signo = 1.0
     for col in range(n):
         max_fila = max(range(col, n), key=lambda r: abs(M[r][col]))
@@ -307,7 +324,7 @@ def determinante(a: Array) -> float:
             M[col], M[max_fila] = M[max_fila], M[col]
             signo *= -1
         piv = M[col][col]
-        for fila in range(col+1, n):
+        for fila in range(col + 1, n):
             factor = M[fila][col] / piv
             M[fila] = [M[fila][j] - factor * M[col][j] for j in range(n)]
     return signo * _producto_diagonal(M, n)
@@ -321,18 +338,25 @@ def _producto_diagonal(M, n):
 
 
 def norma(a: Array) -> float:
-    """Norma euclidiana (L2) del array."""
-    return sum(v**2 for v in a.datos) ** 0.5
+    """Norma euclidiana (L2) de cualquier Array."""
+    if not isinstance(a, Array) or len(a.datos) == 0:
+        raise ErrorDatos(
+            "norma(): se necesita un array no vacío")
+    return sum(v ** 2 for v in a.datos) ** 0.5
 
 
 def dot(a: Array, b: Array) -> float:
-    """Producto punto de dos arrays 1D."""
+    """Producto punto de dos Arrays 1D."""
+    if not isinstance(a, Array) or not isinstance(b, Array):
+        raise ErrorDatos("dot(): se necesitan dos arrays")
     if not a.es_1d or not b.es_1d:
-        raise ErrorDatos("dot(): ambos arrays deben ser 1D")
+        raise ErrorDatos(
+            "dot(): ambos arrays deben ser 1D; "
+            "para matrices usa producto_mat()")
     if a.forma[0] != b.forma[0]:
         raise ErrorDatos(
             f"dot(): longitudes {a.forma[0]} y {b.forma[0]} no coinciden")
-    return sum(x*y for x, y in zip(a.datos, b.datos))
+    return sum(x * y for x, y in zip(a.datos, b.datos))
 
 
 # =====================================================================

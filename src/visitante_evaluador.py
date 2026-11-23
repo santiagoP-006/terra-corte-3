@@ -834,14 +834,44 @@ class VisitanteEvaluador(TerraVisitor):
         return resultado
 
     def visitPotencia(self, ctx: TerraParser.PotenciaContext):
-        """Potencia, asociativa a la derecha: 2 ^ 3 ^ 2 es 2 ^ (3 ^ 2)."""
-        base = self.visit(ctx.unario())
-        if ctx.potencia() is None:
-            return base
+        """
+        Potencia, asociativa a la derecha: 2 ^ 3 ^ 2 es 2 ^ (3 ^ 2).
 
+        En matematicas -2 ^ 2 es -(2 ^ 2) = -4: la potencia se calcula
+        antes que el signo. La gramatica agrupa (-2) ^ 2, asi que aqui se
+        separan los signos '-' y '!' que tenga delante la base, se calcula
+        la potencia y despues se aplican los signos. Escribir (-2) ^ 2 con
+        parentesis sigue dando 4.
+        """
+        if ctx.potencia() is None:
+            return self.visit(ctx.unario())
+
+        signos = []
+        nodo = ctx.unario()
+        while nodo.postfijo() is None:
+            signos.append(nodo.getChild(0).getText())
+            nodo = nodo.unario()
+
+        base = self.visit(nodo.postfijo())
         exponente = self.visit(ctx.potencia())
-        self._exigir_numeros(base, exponente, "^", ctx.start.line)
-        return base ** exponente
+        linea = ctx.start.line
+        self._exigir_numeros(base, exponente, "^", linea)
+
+        if base == 0 and exponente < 0:
+            raise ErrorSemantico(
+                "cero elevado a un exponente negativo es una division por "
+                "cero", linea)
+        if base < 0 and isinstance(exponente, float) \
+                and not exponente.is_integer():
+            raise ErrorSemantico(
+                f"no se puede elevar un numero negativo ({base}) a un "
+                f"exponente decimal ({exponente}): el resultado no es un "
+                f"numero real", linea)
+
+        resultado = base ** exponente
+        for signo in reversed(signos):
+            resultado = self._aplicar_unario(signo, resultado, linea)
+        return resultado
 
     def visitUnario(self, ctx: TerraParser.UnarioContext):
         """Negativo aritmetico y negacion logica."""
@@ -850,8 +880,10 @@ class VisitanteEvaluador(TerraVisitor):
 
         operador = ctx.getChild(0).getText()
         valor = self.visit(ctx.unario())
-        linea = ctx.start.line
+        return self._aplicar_unario(operador, valor, ctx.start.line)
 
+    def _aplicar_unario(self, operador, valor, linea):
+        """Aplica '-' o '!' a un valor ya calculado, validando su tipo."""
         if operador == "-":
             if not es_numero(valor):
                 raise ErrorSemantico(

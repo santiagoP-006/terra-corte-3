@@ -1,0 +1,14 @@
+# Entornos virtuales: cada quien crea el suyo con pip install -r requisitos.txt
+venv/
+.venv/
+
+# Archivos que genera Python al ejecutar
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Copias de respaldo de nano
+*~
+
+# Carpeta temporal de generar.sh
+generado/

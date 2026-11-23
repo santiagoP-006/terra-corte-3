@@ -1028,6 +1028,7 @@ class VisitanteEvaluador(TerraVisitor):
 
                 # --- pandas ---
                 "dataframe":        self._f_dataframe,
+                "dataframe_cols":   self._f_dataframe_cols,
                 "desde_tabla":      self._f_desde_tabla,
                 "head":             self._f_head,
                 "tail":             self._f_tail,
@@ -1679,15 +1680,13 @@ class VisitanteEvaluador(TerraVisitor):
 
 # --- Implementacion de funciones de pandas ---
     def _f_dataframe(self, args, linea):
-        if len(args) != 1 or not isinstance(args[0], dict):
-            raise ErrorSemantico(
-                "dataframe() espera un diccionario {columna: lista}", linea)
-        # En Terra los diccionarios no existen como tipo nativo, pero los
-        # modelos son dicts. Se usa desde Terra pasando listas paralelas:
-        # dataframe([col1, col2], [[v1,v2,...], [v1,v2,...]])
-        raise ErrorSemantico(
-            "usa dataframe_cols(nombres, listas) para crear un DataFrame", linea)
+        """
+        dataframe(["col1", "col2"], [[valores1], [valores2]]) -> DataFrame
 
+        Terra no tiene diccionarios como tipo del lenguaje, asi que las
+        columnas se pasan como dos listas paralelas: nombres y valores.
+        """
+        return self._f_dataframe_cols(args, linea)
 
     def _f_dataframe_cols(self, args, linea):
         """dataframe_cols([col1, col2], [[vals1], [vals2]]) -> DataFrame"""
@@ -1703,6 +1702,16 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(
                 "dataframe_cols(): el numero de nombres y de listas debe coincidir",
                 linea)
+        if not all(isinstance(n, str) for n in nombres):
+            raise ErrorSemantico(
+                "dataframe(): los nombres de columna deben ser textos", linea)
+        if not all(isinstance(l, list) for l in listas):
+            raise ErrorSemantico(
+                "dataframe(): cada columna debe ser una lista de valores",
+                linea)
+        if len(set(nombres)) != len(nombres):
+            raise ErrorSemantico(
+                "dataframe(): hay nombres de columna repetidos", linea)
         try:
             datos = {nombres[i]: listas[i] for i in range(len(nombres))}
             return pd.crear_dataframe(datos)

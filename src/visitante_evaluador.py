@@ -160,6 +160,15 @@ def _formatear_modelo(modelo: dict) -> str:
                 f"p={modelo['p']})\n"
                 f"  y = {coefs[0]} + {terms}\n"
                 f"  R^2 = {r2}")
+    if modelo["tipo"] == "arbol_decision":
+        internos, hojas = ad._contar_nodos(modelo["raiz"])
+        prof = ad._profundidad_real(modelo["raiz"])
+        return (f"Arbol de decision  "
+                f"(n={modelo['n']}, p={modelo['p']}, "
+                f"clases={modelo['clases']})\n"
+                f"  Profundidad: {prof}  |  "
+                f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
+                f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
     return str(modelo)
 
 # =====================================================================

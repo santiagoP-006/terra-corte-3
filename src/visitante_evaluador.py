@@ -71,7 +71,12 @@ class ErrorSemantico(Exception):
 # =====================================================================
 
 def nombre_tipo(valor) -> str:
-    """Devuelve el nombre del tipo Terra de un valor de Python."""
+    """
+    Devuelve el nombre del tipo Terra de un valor de Python.
+
+    El orden importa: bool va antes que int (en Python bool es subclase
+    de int) y DataFrame va antes que Tabla (DataFrame hereda de Tabla).
+    """
     if isinstance(valor, bool):
         return "booleano"
     if isinstance(valor, int):
@@ -84,16 +89,19 @@ def nombre_tipo(valor) -> str:
         return "lista"
     if valor is None:
         return "nulo"
+    if isinstance(valor, DataFrame):
+        return "dataframe"
     if isinstance(valor, Tabla):
         return "tabla"
+    if isinstance(valor, Array):
+        return "array"
+    if isinstance(valor, dict) and "tipo" in valor:
+        return "modelo"
+    if isinstance(valor, dict) and "exactitud" in valor:
+        return "evaluacion"
     if biblioteca.es_funcion(valor):
         return "funcion"
     return "desconocido"
-
-    if isinstance(valor, DataFrame):
-        return "dataframe"
-    if isinstance(valor, Array):
-        return "array"
 
 
 def es_numero(valor) -> bool:
@@ -108,7 +116,13 @@ def es_numero(valor) -> bool:
 
 
 def formatear(valor, anidado=False) -> str:
-    """Convierte un valor a su representacion textual en Terra."""
+    """
+    Convierte un valor a su representacion textual en Terra.
+
+    Cada tipo tiene su propia forma de mostrarse. Antes habia codigo
+    despues de un 'return' que nunca se ejecutaba; por eso los arrays
+    salian como 'Array(2, 2)' y los modelos como diccionarios de Python.
+    """
     if valor is None:
         return "nulo"
     if isinstance(valor, bool):
@@ -117,37 +131,16 @@ def formatear(valor, anidado=False) -> str:
         return "[" + ", ".join(formatear(v, True) for v in valor) + "]"
     if isinstance(valor, str):
         return f'"{valor}"' if anidado else valor
-    if isinstance(valor, Tabla):
-        return valor.como_texto()	    
-
-    if isinstance(valor, dict) and "tipo" in valor:
-        return _formatear_modelo(valor)
-    return str(valor)
-
-    if isinstance(valor, dict) and valor.get("tipo") == "arbol_decision":
-        internos, hojas = ad._contar_nodos(valor["raiz"])
-        prof = ad._profundidad_real(valor["raiz"])
-        return (f"Arbol de decision  "
-                f"(n={valor['n']}, p={valor['p']}, "
-                f"clases={valor['clases']})\n"
-                f"  Profundidad: {prof}  |  "
-                f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
-                f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
-
-    if isinstance(valor, dict) and "exactitud" in valor:
-        return (f"Evaluacion: exactitud={round(valor['exactitud']*100, 2)}%  "
-                f"({valor['correctas']}/{valor['total']})")
-
-
-    if isinstance(valor, DataFrame):
+    if isinstance(valor, Tabla):          # incluye DataFrame
         return valor.como_texto()
-    
     if isinstance(valor, Array):
         return valor.como_texto()
-    
+    if isinstance(valor, dict) and "tipo" in valor:
+        return _formatear_modelo(valor)
     if isinstance(valor, dict) and "exactitud" in valor:
-        return (f"Evaluacion: exactitud={round(valor['exactitud']*100,2)}%  "
-                f"({valor['correctas']}/{valor['total']})")
+        return (f"Evaluacion: exactitud={round(valor['exactitud'] * 100, 2)}%"
+                f"  ({valor['correctas']}/{valor['total']})")
+    return str(valor)
 
 def _formatear_modelo(modelo: dict) -> str:
     """Representacion legible de un modelo de regresion."""

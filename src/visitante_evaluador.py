@@ -1858,7 +1858,78 @@ class VisitanteEvaluador(TerraVisitor):
         return self._wrap_np(np.abs_array, args, linea, "abs_array")
 
 # --- Implementacion de funciones de graficado ---
+
+    # Que espera cada funcion de graficado, posicion por posicion.
+    #   "nums"   lista de numeros (se permite nulo)
+    #   "series" lista de numeros o lista de listas de numeros
+    #   "lista"  lista de cualquier cosa (categorias)
+    #   "texto"  titulo, nombre de eje o ruta
+    #   "bins"   entero mayor o igual a 1
+    _FIRMAS_GRAFICAS = {
+        "graficar_lineas":     ["nums", "nums", "texto", "texto", "texto"],
+        "graficar_barras":     ["lista", "nums", "texto", "texto"],
+        "graficar_dispersion": ["nums", "nums", "texto", "texto", "texto"],
+        "graficar_histograma": ["nums", "bins", "texto", "texto"],
+        "graficar_caja":       ["nums", "texto", "texto"],
+        "exportar_lineas":     ["nums", "series", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_barras":     ["lista", "nums", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_dispersion": ["nums", "nums", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_histograma": ["nums", "texto", "bins", "texto", "texto"],
+    }
+
+    def _validar_grafica(self, funcion, args, linea):
+        """
+        Revisa los argumentos de una funcion de graficado antes de dibujar.
+
+        Devuelve los argumentos listos para usar: un Array de una dimension
+        se convierte en lista, para que se pueda graficar directamente.
+        """
+        firma = self._FIRMAS_GRAFICAS[funcion]
+        if len(args) > len(firma):
+            raise ErrorSemantico(
+                f"{funcion}() recibe maximo {len(firma)} argumentos, se "
+                f"recibieron {len(args)}", linea)
+
+        listos = []
+        for posicion, (valor, esperado) in enumerate(zip(args, firma), 1):
+            if isinstance(valor, Array) and valor.es_1d:
+                valor = list(valor.datos)
+
+            if esperado == "texto" and not isinstance(valor, str):
+                problema = "un texto"
+            elif esperado == "bins" and (isinstance(valor, bool)
+                                         or not isinstance(valor, int)
+                                         or valor < 1):
+                problema = "un numero entero mayor o igual a 1"
+            elif esperado == "lista" and not isinstance(valor, list):
+                problema = "una lista"
+            elif esperado == "nums" and not self._son_numeros(valor):
+                problema = "una lista de numeros"
+            elif esperado == "series" and not (
+                    self._son_numeros(valor)
+                    or (isinstance(valor, list) and valor
+                        and all(self._son_numeros(v) for v in valor))):
+                problema = "una lista de numeros o una lista de series"
+            else:
+                problema = None
+
+            if problema:
+                raise ErrorSemantico(
+                    f"{funcion}(): el argumento {posicion} debe ser "
+                    f"{problema}, se recibio {nombre_tipo(valor)}", linea)
+            listos.append(valor)
+        return listos
+
+    @staticmethod
+    def _son_numeros(valor) -> bool:
+        """True si es una lista no vacia de numeros (o nulos)."""
+        return (isinstance(valor, list) and len(valor) > 0
+                and all(v is None or es_numero(v) for v in valor))
     def _f_graficar_lineas(self, args, linea):
+        args = self._validar_grafica("graficar_lineas", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_lineas() espera xs, ys [, titulo] [, eje_x] [, eje_y]",
@@ -1874,6 +1945,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_barras(self, args, linea):
+        args = self._validar_grafica("graficar_barras", args, linea)  
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_barras() espera categorias, valores [, titulo] [, eje_y]",
@@ -1888,6 +1960,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_dispersion(self, args, linea):
+        args = self._validar_grafica("graficar_dispersion", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_dispersion() espera xs, ys [, titulo]", linea)
@@ -1902,6 +1975,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_histograma(self, args, linea):
+        args = self._validar_grafica("graficar_histograma", args, linea)
         if len(args) < 1:
             raise ErrorSemantico("graficar_histograma() espera una lista", linea)
         bins   = args[1] if len(args) > 1 else 10
@@ -1915,6 +1989,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_caja(self, args, linea):
+        args = self._validar_grafica("graficar_caja", args, linea)
         if len(args) < 1:
             raise ErrorSemantico("graficar_caja() espera una lista", linea)
         titulo = args[1] if len(args) > 1 else ""
@@ -1927,6 +2002,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_lineas(self, args, linea):
+        args = self._validar_grafica("exportar_lineas", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_lineas() espera xs, ys, ruta [, titulo] [, eje_x] [, eje_y]",
@@ -1944,6 +2020,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_barras(self, args, linea):
+        args = self._validar_grafica("exportar_barras", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_barras() espera categorias, valores, ruta [, titulo]",
@@ -1959,6 +2036,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_dispersion(self, args, linea):
+        args = self._validar_grafica("exportar_dispersion", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_dispersion() espera xs, ys, ruta [, titulo]", linea)
@@ -1973,6 +2051,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_histograma(self, args, linea):
+        args = self._validar_grafica("exportar_histograma", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "exportar_histograma() espera lista, ruta [, bins] [, titulo]",

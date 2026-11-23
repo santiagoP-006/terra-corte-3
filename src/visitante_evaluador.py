@@ -984,7 +984,7 @@ class VisitanteEvaluador(TerraVisitor):
                 "array":            self._f_array,
                 "zeros":            self._f_zeros,
                 "ones":             self._f_ones,
-                "identidad":        self._f_identidad,
+                "identidad_array":  self._f_identidad,
                 "rango_array":      self._f_rango_array,
                 "linspace":         self._f_linspace,
                 "reshape":          self._f_reshape,
@@ -1022,7 +1022,56 @@ class VisitanteEvaluador(TerraVisitor):
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
+            self._unificar_matrices()
         return self._catalogo
+
+    # Funciones que existen dos veces: en biblioteca.py (trabajan con
+    # listas de listas) y en terra_numpy.py (trabajan con Array). Antes la
+    # version de la biblioteca pisaba a la de numpy y transpuesta(array(...))
+    # fallaba. Ahora una sola funcion decide segun el tipo del argumento.
+    _NOMBRES_DOBLES = {
+        "transpuesta":  "_f_transpuesta",
+        "determinante": "_f_determinante",
+        "traza":        "_f_traza",
+        "norma":        "_f_norma",
+        "concatenar":   "_f_concatenar",
+    }
+
+    def _unificar_matrices(self):
+        """Hace que las funciones de matrices acepten listas y Array."""
+        for nombre, metodo in self._NOMBRES_DOBLES.items():
+            version_lista = self._catalogo[nombre]
+            version_array = getattr(self, metodo)
+            self._catalogo[nombre] = self._segun_tipo(version_lista,
+                                                      version_array)
+
+        # inversa y dimension solo existian para listas: con un Array se
+        # convierte a listas, se calcula y se devuelve en el mismo tipo
+        inversa_lista = self._catalogo["inversa"]
+        dimension_lista = self._catalogo["dimension"]
+
+        def inversa(args, linea):
+            if args and isinstance(args[0], Array):
+                resultado = inversa_lista([args[0].como_listas()], linea)
+                return np.array(resultado)
+            return inversa_lista(args, linea)
+
+        def dimension(args, linea):
+            if len(args) == 1 and isinstance(args[0], Array):
+                return list(args[0].forma)
+            return dimension_lista(args, linea)
+
+        self._catalogo["inversa"] = inversa
+        self._catalogo["dimension"] = dimension
+
+    @staticmethod
+    def _segun_tipo(version_lista, version_array):
+        """Usa la version de Array si algun argumento es un Array."""
+        def llamar(args, linea):
+            if any(isinstance(a, Array) for a in args):
+                return version_array(args, linea)
+            return version_lista(args, linea)
+        return llamar
 
     def _envolver(self, funcion):
         """

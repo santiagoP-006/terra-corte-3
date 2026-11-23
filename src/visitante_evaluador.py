@@ -171,6 +171,16 @@ def _formatear_modelo(modelo: dict) -> str:
                 f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
     return str(modelo)
 
+def _traducir_error(error) -> str:
+    """Mensaje en espanol para un error interno de Python."""
+    if isinstance(error, ZeroDivisionError):
+        return "division por cero"
+    if isinstance(error, OverflowError):
+        return "el resultado es demasiado grande para representarse"
+    if isinstance(error, TypeError):
+        return ("los argumentos no tienen el tipo esperado; revisa el "
+                f"orden y el tipo de cada uno (detalle: {error})")
+    return f"operacion no valida (detalle: {error})"
 # =====================================================================
 # VISITANTE
 # =====================================================================
@@ -210,9 +220,27 @@ class VisitanteEvaluador(TerraVisitor):
                 self.visit(hijo)
         return None
 
-    def visitSentencia(self, ctx: TerraParser.SentenciaContext):
-        return self.visit(ctx.getChild(0))
+    # Errores de Python que pueden escaparse desde las bibliotecas propias
+    # (por ejemplo, pasar un texto donde se esperaba un numero). No se
+    # incluye RecursionError: ese lo maneja _invocar con su propio mensaje.
+    _ERRORES_INTERNOS = (TypeError, ValueError, ZeroDivisionError,
+                         IndexError, KeyError, AttributeError, OverflowError)
 
+    def visitSentencia(self, ctx: TerraParser.SentenciaContext):
+        """
+        Ejecuta una sentencia.
+
+        Funciona como red de seguridad: si algo falla dentro de Python y
+        nadie lo convirtio en ErrorSemantico, aqui se traduce, con la linea
+        de la sentencia. Asi el usuario nunca ve un mensaje en ingles sin
+        linea como "unsupported operand type(s) for /".
+        """
+        try:
+            return self.visit(ctx.getChild(0))
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), ctx.start.line)
+        except self._ERRORES_INTERNOS as e:
+            raise ErrorSemantico(_traducir_error(e), ctx.start.line)
     # -----------------------------------------------------------------
     # VARIABLES
     # -----------------------------------------------------------------

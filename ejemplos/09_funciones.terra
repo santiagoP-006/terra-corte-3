@@ -7,7 +7,7 @@ funcion intensidad_carbono(co2, poblacion):
     retornar co2 / poblacion * 1000000.0
 fin
 
-funcion clasificar(valor):
+funcion nivel_intensidad(valor):
     si valor > 4.0:
         retornar "alta"
     sino si valor > 2.0:
@@ -16,14 +16,14 @@ funcion clasificar(valor):
     retornar "baja"
 fin
 
-funcion factorial(n):
+funcion factorial_recursivo(n):
     si n <= 1:
         retornar 1
     fin
-    retornar n * factorial(n - 1)
+    retornar n * factorial_recursivo(n - 1)
 fin
 
-fijo indice = intensidad_carbono(88.1, 52.3)
+fijo indice = intensidad_carbono(88.1, 52300000.0)
 mostrar("Intensidad:", redondear(indice, 3))
-mostrar("Categoria:", clasificar(indice))
-mostrar("Factorial de 5:", factorial(5))
+mostrar("Categoria:", nivel_intensidad(indice))
+mostrar("Factorial de 5:", factorial_recursivo(5))

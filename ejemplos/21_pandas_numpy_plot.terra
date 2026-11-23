@@ -36,10 +36,12 @@ mostrar("A @ B (producto matricial):")
 mostrar(producto_mat(A, B))
 
 mostrar("Transpuesta de A:")
-# mostrar(transpuesta(A))
-# mostrar("Determinante de A:", determinante(A))
-# mostrar("Traza de A:", traza(A))
-# mostrar("Norma de v:", norma(v))
+mostrar(transpuesta(A))
+mostrar("Determinante de A:", determinante(A))
+mostrar("Traza de A:", traza(A))
+mostrar("Norma de v:", norma(v))
+mostrar("Inversa de A:")
+mostrar(inversa(A))
 
 fijo I = identidad(3)
 mostrar("Identidad 3x3:")
@@ -80,3 +82,4 @@ exportar_lineas(anios, co2_co, "salidas/co2_lineas.svg","CO2 Colombia", "Año", 
 exportar_barras(["Colombia", "Peru", "Chile", "Ecuador"],[346.6, 216.2, 336.3, 156.3],"salidas/co2_barras.svg","CO2 acumulado", "País", "Mt CO2")
 
 exportar_dispersion(co2_co, co2_pe, "salidas/co2_scatter.svg", "CO2 Colombia vs Peru", "Colombia", "Peru")
+

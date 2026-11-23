@@ -92,7 +92,7 @@ class Terra:
         return arbol, parser, manejador_lexico, manejador_sintactico
 
     def ejecutar_archivo(self, ruta: str, mostrar_arbol=False,
-                         mostrar_tokens=False) -> None:
+                         mostrar_tokens=False) -> bool:
         """Lee y ejecuta un archivo .terra."""
         if not ruta.endswith(EXTENSION):
             print(f"Error: '{ruta}' no tiene extension {EXTENSION}")
@@ -106,11 +106,11 @@ class Terra:
 
         if mostrar_tokens:
             self._imprimir_tokens(codigo)
-            return
+            return True
 
-        self._ejecutar_codigo(codigo, mostrar_arbol=mostrar_arbol)
+        return self._ejecutar_codigo(codigo, mostrar_arbol=mostrar_arbol)
 
-    def _ejecutar_codigo(self, codigo: str, mostrar_arbol=False) -> None:
+    def _ejecutar_codigo(self, codigo: str, mostrar_arbol=False) -> bool:
         """Analiza el codigo y, si es valido, lo evalua."""
         arbol, parser, err_lex, err_sin = self.analizar(codigo)
 
@@ -118,21 +118,23 @@ class Terra:
             total = len(err_lex.errores) + len(err_sin.errores)
             print(f"\nEl programa contiene {total} error(es). No se ejecuta.",
                   file=sys.stderr)
-            return
+            return False
 
         if mostrar_arbol:
             print(arbol.toStringTree(recog=parser))
-            return
+            return True
 
         if self.visitante is None:
             print("Analisis lexico y sintactico correcto.")
             print("(El evaluador semantico se implementa en el segundo corte.)")
-            return
+            return True
 
         try:
             self.visitante.visit(arbol)
         except Exception as e:
             print(f"Error en evaluacion: {e}", file=sys.stderr)
+            return False
+        return True
 
     def _imprimir_tokens(self, codigo: str) -> None:
         """
@@ -191,11 +193,13 @@ def main():
 
     if argumentos:
         interprete = Terra(modo_interactivo=False)
-        interprete.ejecutar_archivo(
+        correcto = interprete.ejecutar_archivo(
             argumentos[0],
             mostrar_arbol="--arbol" in banderas,
             mostrar_tokens="--tokens" in banderas,
         )
+        if not correcto:
+            sys.exit(1)
     else:
         interprete = Terra(modo_interactivo=True)
         interprete.modo_repl()

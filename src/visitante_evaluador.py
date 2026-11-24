@@ -44,6 +44,7 @@ from src import operaciones as ops
 from src import biblioteca
 from src import visualizacion
 from src import conversiones
+from src import aprendizaje
 
 class RetornoSenal(Exception):
     """
@@ -171,8 +172,7 @@ def _formatear_modelo(modelo: dict) -> str:
                 f"  Profundidad: {prof}  |  "
                 f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
                 f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
-    return str(modelo)
-
+    return aprendizaje.describir(modelo)
 def _traducir_error(error) -> str:
     """Mensaje en espanol para un error interno de Python."""
     if isinstance(error, ZeroDivisionError):
@@ -1143,6 +1143,8 @@ class VisitanteEvaluador(TerraVisitor):
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
             for nombre, funcion in conversiones.funciones().items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in aprendizaje.funciones().items():
                 self._catalogo[nombre] = self._envolver(funcion)
             self._unificar_matrices()
         return self._catalogo

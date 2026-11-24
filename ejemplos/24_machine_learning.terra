@@ -1,0 +1,84 @@
+# =====================================================================
+# Machine Learning en Terra (todo implementado desde cero)
+# =====================================================================
+# Pregunta: con las emisiones, la energia renovable y la poblacion de un
+# anio, ¿se puede saber de que pais es el registro?
+
+fijo datos = cargar "datos/emisiones_ejemplo.csv"
+    |> rellenar nulos en energia_renovable con 0.0
+
+fijo X = datos |> seleccionar [co2, energia_renovable, poblacion]
+fijo y = columna(datos, "pais")
+
+# --- 1. Dividir en entrenamiento (75 %) y prueba (25 %) --------------
+fijo partes = dividir_datos(X, y, 0.25, 7)
+fijo X_ent = partes[0]
+fijo X_pru = partes[1]
+fijo y_ent = partes[2]
+fijo y_pru = partes[3]
+mostrar("Filas de entrenamiento:", num_filas(X_ent), " de prueba:", num_filas(X_pru))
+
+# KNN mide distancias: hay que poner las columnas en la misma escala, si
+# no la poblacion (millones) pesa mucho mas que el co2 (decenas).
+# La prueba se escala con los numeros del entrenamiento.
+fijo X_ent_esc = estandarizar(X_ent)
+fijo X_pru_esc = estandarizar(X_pru, X_ent)
+
+# --- 2. K vecinos mas cercanos ---------------------------------------
+fijo modelo_knn = knn(X_ent_esc, y_ent, 3)
+mostrar(modelo_knn)
+fijo pred_knn = aplicar_modelo(modelo_knn, X_pru_esc)
+mostrar("Reales:  ", y_pru)
+mostrar("KNN:     ", pred_knn, " exactitud:", exactitud(y_pru, pred_knn))
+
+# --- 3. Perceptron multicapa (red neuronal) --------------------------
+# Una capa oculta de 8 neuronas, 300 epocas, tasa de aprendizaje 0.05.
+# El perceptron estandariza las entradas por dentro.
+fijo red = perceptron_clasificador(X_ent, y_ent, [8], 300, 0.05)
+mostrar(red)
+fijo pred_red = aplicar_modelo(red, X_pru)
+mostrar("Red:     ", pred_red, " exactitud:", exactitud(y_pru, pred_red))
+mostrar(reporte_clasificacion(y_pru, pred_red))
+mostrar(matriz_confusion(y_pru, pred_red))
+
+# La perdida debe bajar en cada epoca: se grafica para comprobarlo
+fijo historial = dataframe(["epoca", "perdida"], [rango(1, 301), perdidas(red)])
+graficar lineas historial
+    eje_x epoca
+    eje_y perdida
+    titulo "Entrenamiento del perceptron"
+    guardar como "salidas/ml_perdida.png"
+
+# --- 4. K-medias: agrupar sin usar el nombre del pais ----------------
+fijo X_norm = normalizar(X)
+fijo inercias = inercias_kmeans(X_norm, 6)
+fijo codo = dataframe(["k", "inercia"], [rango(1, 7), inercias])
+graficar lineas codo
+    eje_x k
+    eje_y inercia
+    titulo "Metodo del codo"
+    guardar como "salidas/ml_codo.png"
+
+fijo grupos = kmeans(X_norm, 4)
+mostrar(grupos)
+fijo con_grupo = dataframe(["pais", "grupo"], [y, grupos_kmeans(grupos)])
+mostrar(con_grupo |> agrupar por [pais, grupo] |> resumir registros = contar())
+
+# --- 5. Regresion: predecir el co2 ----------------------------------
+fijo X_reg = datos |> seleccionar [poblacion, energia_renovable]
+fijo y_reg = columna(datos, "co2")
+
+fijo lineal = regresion_multiple(a_listas(X_reg), y_reg)
+fijo red_reg = perceptron_regresor(X_reg, y_reg, [6], 400, 0.01)
+fijo vecinos = knn_regresion(estandarizar(X_reg), y_reg, 2)
+
+fijo p_lineal = aplicar_modelo(lineal, X_reg)
+fijo p_red = aplicar_modelo(red_reg, X_reg)
+fijo p_knn = aplicar_modelo(vecinos, estandarizar(X_reg))
+
+mostrar("Regresion lineal  R2:", redondear(r2(y_reg, p_lineal), 4), " RMSE:", redondear(rmse(y_reg, p_lineal), 3))
+mostrar("Perceptron        R2:", redondear(r2(y_reg, p_red), 4), " RMSE:", redondear(rmse(y_reg, p_red), 3))
+mostrar("KNN (k=2)         R2:", redondear(r2(y_reg, p_knn), 4), " RMSE:", redondear(rmse(y_reg, p_knn), 3))
+
+# Una sola prediccion: un pais de 52.3 millones con 25 % de renovables
+mostrar("Prediccion del perceptron:", redondear(aplicar_modelo(red_reg, [52300000.0, 25.0]), 2), "Mt de CO2")

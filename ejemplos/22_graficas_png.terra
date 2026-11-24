@@ -1,0 +1,54 @@
+# =====================================================================
+# Las cinco graficas de Terra, guardadas como PNG
+# =====================================================================
+# Cada grafica se configura con opciones en cualquier orden:
+#   eje_x <columna>  eje_y <columna>  titulo "..."  leyenda "..."
+#   guardar como "ruta.png"
+# Si se omite 'guardar como', la grafica se dibuja en la terminal.
+
+fijo datos = cargar "datos/emisiones_ejemplo.csv"
+    |> rellenar nulos en energia_renovable con 0.0
+    |> crear co2_per_capita = co2 / poblacion * 1000000.0
+
+# 1. Barras: emisiones totales por pais (las filas del mismo pais se suman)
+graficar barras datos
+    eje_x pais
+    eje_y co2
+    titulo "CO2 total 2015-2023 por pais"
+    leyenda "Mt de CO2"
+    guardar como "salidas/g1_barras.png"
+
+# 2. Lineas: una linea por pais gracias a leyenda "pais"
+graficar lineas datos
+    eje_x anio
+    eje_y co2
+    titulo "Evolucion de las emisiones"
+    leyenda "pais"
+    guardar como "salidas/g2_lineas.png"
+
+# 3. Histograma: como se reparten las emisiones por habitante
+graficar histograma datos
+    eje_x co2_per_capita
+    titulo "Distribucion del CO2 per capita"
+    guardar como "salidas/g3_histograma.png"
+
+# 4. Dispersion: renovables contra emisiones, un color por pais
+graficar dispersion datos
+    eje_x energia_renovable
+    eje_y co2
+    leyenda "pais"
+    titulo "Energia renovable vs emisiones"
+    guardar como "salidas/g4_dispersion.png"
+
+# 5. Caja: una caja por pais
+graficar caja datos
+    eje_x pais
+    eje_y co2
+    titulo "Variacion de las emisiones por pais"
+    guardar como "salidas/g5_caja.png"
+
+# Sin 'guardar como': se dibuja en la terminal
+graficar barras datos
+    eje_x pais
+    eje_y co2
+    titulo "CO2 por pais (terminal)"

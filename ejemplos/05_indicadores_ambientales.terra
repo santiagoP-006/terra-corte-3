@@ -28,6 +28,7 @@ graficar barras resumen
 graficar lineas limpio
     eje_x anio
     eje_y co2
+    leyenda "pais"
     titulo "Evolucion anual de emisiones"
     guardar como "salidas/evolucion_co2.png"
 

@@ -42,6 +42,7 @@ from gramaticas.TerraVisitor import TerraVisitor
 from src.tabla import Tabla, ErrorDatos, leer_csv, escribir_csv
 from src import operaciones as ops
 from src import biblioteca
+from src import visualizacion
 
 class RetornoSenal(Exception):
     """
@@ -408,10 +409,57 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(str(e), linea)
         return None
 
-    def visitGraficar_stmt(self, ctx):
-        raise ErrorSemantico(
-            "'graficar' se reconoce sintacticamente pero su ejecucion "
-            "corresponde al tercer corte", ctx.start.line)
+    def visitGraficar_stmt(self, ctx: TerraParser.Graficar_stmtContext):
+        """
+        graficar <tipo> <tabla>
+            eje_x <columna>   eje_y <columna>
+            titulo "texto"    leyenda "texto o columna"
+            guardar como "ruta.png"
+
+        Aqui solo se lee el arbol: el tipo, la tabla y las opciones (que
+        pueden ir en cualquier orden pero sin repetirse). El trabajo de
+        sacar los datos y dibujar lo hace visualizacion.py.
+        """
+        linea = ctx.start.line
+        tipo = ctx.tipo_grafica().getText()
+        tabla = self.visit(ctx.expr())
+        if not isinstance(tabla, Tabla):
+            raise ErrorSemantico(
+                f"'graficar' necesita una tabla, se recibio "
+                f"{nombre_tipo(tabla)}", linea)
+
+        opciones = {}
+        for opcion in ctx.opcion_grafica():
+            if opcion.EJE_X():
+                clave, valor = "eje_x", opcion.IDENTIFICADOR().getText()
+            elif opcion.EJE_Y():
+                clave, valor = "eje_y", opcion.IDENTIFICADOR().getText()
+            else:
+                if opcion.TITULO():
+                    clave = "titulo"
+                elif opcion.LEYENDA():
+                    clave = "leyenda"
+                else:
+                    clave = "ruta"
+                valor = self.visit(opcion.expr())
+                if not isinstance(valor, str):
+                    raise ErrorSemantico(
+                        f"la opcion '{clave}' de graficar debe ser texto, "
+                        f"se recibio {nombre_tipo(valor)}",
+                        opcion.start.line)
+            if clave in opciones:
+                raise ErrorSemantico(
+                    f"la opcion '{clave}' esta repetida en graficar",
+                    opcion.start.line)
+            opciones[clave] = valor
+
+        try:
+            mensaje = visualizacion.graficar(tipo, tabla, opciones)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        if mensaje:
+            print(mensaje)
+        return None
 
     def visitCarga(self, ctx: TerraParser.CargaContext):
         """

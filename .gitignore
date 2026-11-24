@@ -12,3 +12,4 @@ __pycache__/
 
 # Carpeta temporal de generar.sh
 generado/
+salidas/*.png

@@ -241,11 +241,7 @@ def test_consola_sale_con_0_si_todo_va_bien(tmp_path):
 # Ejemplos que deben fallar a proposito o que necesitan algo especial
 ESPERAN_ERROR = {"06_errores.terra"}        # errores sintacticos de muestra
 NECESITAN_TECLADO = {"17_entrada.terra"}    # piden datos con leer()
-PENDIENTES = {
-    "05_indicadores_ambientales.terra":
-        "usa 'graficar', que se implementa en el paso 2 del tercer corte",
-}
-
+PENDIENTES = {}                             # ejemplos que aun no funcionan
 EJEMPLOS = sorted(f for f in os.listdir(os.path.join(RAIZ, "ejemplos"))
                   if f.endswith(".terra"))
 

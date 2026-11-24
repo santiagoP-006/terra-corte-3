@@ -200,6 +200,9 @@ def main():
         )
         if not correcto:
             sys.exit(1)
+        if "--eficiencia" in banderas and interprete.visitante is not None:
+            from src import eficiencia
+            print(eficiencia.reporte_texto(interprete.visitante))
     else:
         interprete = Terra(modo_interactivo=True)
         interprete.modo_repl()

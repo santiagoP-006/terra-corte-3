@@ -45,6 +45,7 @@ from src import biblioteca
 from src import visualizacion
 from src import conversiones
 from src import aprendizaje
+from src import eficiencia
 
 class RetornoSenal(Exception):
     """
@@ -204,6 +205,15 @@ class VisitanteEvaluador(TerraVisitor):
         self.funciones = {}
         self.profundidad = 0
         self.modo_interactivo = modo_interactivo
+        self.contador = eficiencia.Contador()
+
+    def visit(self, arbol):
+        """
+        Todos los nodos que se evaluan pasan por aqui. Antes de evaluar
+        cada uno se cuenta en el contador de operaciones (eficiencia.py).
+        """
+        self.contador.registrar(arbol)
+        return arbol.accept(self)
     # -----------------------------------------------------------------
     # ESTRUCTURA
     # -----------------------------------------------------------------
@@ -1145,6 +1155,8 @@ class VisitanteEvaluador(TerraVisitor):
             for nombre, funcion in conversiones.funciones().items():
                 self._catalogo[nombre] = self._envolver(funcion)
             for nombre, funcion in aprendizaje.funciones().items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in eficiencia.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
             self._unificar_matrices()
         return self._catalogo

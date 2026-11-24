@@ -1,0 +1,78 @@
+# =====================================================================
+# Medir la eficiencia contando operaciones
+# =====================================================================
+# Terra cuenta el trabajo que hace un programa: operaciones aritmeticas,
+# comparaciones, vueltas de ciclos, llamadas... Siempre da el mismo
+# resultado y deja ver como crece el trabajo cuando crecen los datos.
+# Para ver el reporte de todo el programa al final, ejecuta:
+#     python src/terra.py ejemplos/25_eficiencia.terra --eficiencia
+
+# Dos formas de sumar 1 + 2 + ... + n
+funcion suma_con_ciclo(n):
+    var total = 0
+    var i = 1
+    mientras i <= n:
+        total = total + i
+        i = i + 1
+    fin
+    retornar total
+fin
+
+funcion suma_con_formula(n):
+    retornar n * (n + 1) / 2
+fin
+
+# Contar los pares (i, j) con i < j recorriendo todas las combinaciones
+funcion pares_ordenados(n):
+    var c = 0
+    para i en rango(n):
+        para j en rango(n):
+            si i < j:
+                c = c + 1
+            fin
+        fin
+    fin
+    retornar c
+fin
+
+mostrar("Operaciones de suma_con_ciclo(100):")
+mostrar(contar_operaciones(suma_con_ciclo, [100]))
+
+mostrar("Operaciones de suma_con_formula(100):")
+mostrar(contar_operaciones(suma_con_formula, [100]))
+
+# --- Como crece el trabajo -------------------------------------------
+fijo tamanos = [10, 20, 40, 80]
+fijo lineal = crecimiento(suma_con_ciclo, tamanos)
+fijo constante = crecimiento(suma_con_formula, tamanos)
+fijo cuadratico = crecimiento(pares_ordenados, [5, 10, 20, 40])
+
+mostrar("Ciclo (O(n)): al duplicar n, el trabajo se duplica")
+mostrar(lineal)
+mostrar("Formula (O(1)): el trabajo no cambia con n")
+mostrar(constante)
+mostrar("Dos ciclos anidados (O(n^2)): al duplicar n, el trabajo se cuadruplica")
+mostrar(cuadratico)
+
+graficar lineas lineal
+    eje_x n
+    eje_y operaciones
+    titulo "Suma con ciclo: crecimiento lineal"
+    guardar como "salidas/eficiencia_lineal.png"
+
+graficar lineas cuadratico
+    eje_x n
+    eje_y operaciones
+    titulo "Ciclos anidados: crecimiento cuadratico"
+    guardar como "salidas/eficiencia_cuadratica.png"
+
+# --- Medir un trozo de programa con datos reales ----------------------
+iniciar_conteo()
+fijo datos = cargar "datos/emisiones_ejemplo.csv"
+fijo resumen = datos
+    |> filtrar donde co2 > 50.0
+    |> agrupar por [pais]
+    |> resumir total = suma(co2)
+mostrar("Trabajo de cargar, filtrar y agrupar:")
+mostrar(reporte_conteo())
+mostrar("Memoria estimada de las variables:", memoria_total(), "bytes")

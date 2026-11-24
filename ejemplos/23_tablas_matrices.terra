@@ -1,0 +1,53 @@
+# =====================================================================
+# Tablas, matrices y arrays: conversiones y operaciones
+# =====================================================================
+
+fijo datos = cargar "datos/emisiones_ejemplo.csv"
+    |> rellenar nulos en energia_renovable con 0.0
+
+# --- De tabla a matriz (Array) ---------------------------------------
+# Sin lista de columnas toma todas las numericas; aqui elegimos dos.
+fijo X = a_array(datos, ["co2", "energia_renovable"])
+mostrar("Forma de X (filas, columnas):", dimension(X))
+
+# --- Operaciones entre matrices --------------------------------------
+# Restar a cada fila la media de su columna (centrar los datos).
+fijo media_co2 = media(columna(datos, "co2"))
+fijo media_renovable = media(columna(datos, "energia_renovable"))
+fijo medias = array([media_co2, media_renovable])
+fijo centrado = X - medias
+
+# --- De matriz a tabla -----------------------------------------------
+fijo tabla_centrada = a_tabla(centrado, ["co2_c", "renovable_c"])
+mostrar("Datos centrados (primeras filas):")
+mostrar(tabla_centrada |> limitar 4)
+
+# Matriz de covarianza: (Xc transpuesta x Xc) / (n - 1)
+fijo n = dimension(X)[0]
+fijo covarianza = producto_mat(transpuesta(centrado), centrado) / (n - 1)
+mostrar("Matriz de covarianza:")
+mostrar(covarianza)
+
+# --- Operaciones con tablas ------------------------------------------
+fijo pequena = datos |> seleccionar [pais, co2] |> limitar 3
+
+# A una tabla se le puede sumar, restar, multiplicar o dividir un numero:
+# cambian las columnas numericas y el texto queda igual.
+mostrar("CO2 en kilotoneladas (x 1000):")
+mostrar(pequena * 1000)
+
+# Dos tablas con las mismas columnas se operan columna por columna
+fijo duplicada = pequena
+mostrar("Tabla + tabla:")
+mostrar(duplicada + duplicada)
+
+# Y una tabla con un array del mismo tamano que su parte numerica
+mostrar("Tabla - array (resta 80 a cada co2):")
+mostrar(duplicada - array([80.0]))
+
+# --- Producto de matrices con cualquier combinacion ------------------
+fijo M = a_tabla([[1, 2], [3, 4]], ["a", "b"])
+mostrar("Tabla x lista:")
+mostrar(producto_mat(M, [[1, 0], [0, 1]]))
+
+mostrar("Vuelta a lista de listas:", a_listas(M))

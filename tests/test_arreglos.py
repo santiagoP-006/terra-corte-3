@@ -67,14 +67,14 @@ def test_mostrar_evaluacion_es_legible(capsys):
 
 
 def test_error_nombra_el_tipo_array():
-    with pytest.raises(ErrorSemantico, match="array con array"):
-        evaluar("fijo a = array([1.0])\nfijo b = a + a\n")
+    # array + array ya es valido (conversiones.py); con un texto no
+    with pytest.raises(ErrorSemantico, match=r"array \+ texto"):
+        evaluar('fijo a = array([1.0])\nfijo b = a + "x"\n')
 
 
 def test_tipo_dataframe_en_mensajes():
-    with pytest.raises(ErrorSemantico, match="dataframe"):
-        evaluar('fijo d = dataframe(["x"], [[1, 2]])\nfijo r = d + 1\n')
-
+    with pytest.raises(ErrorSemantico, match=r"dataframe \+ texto"):
+        evaluar('fijo d = dataframe(["x"], [[1, 2]])\nfijo r = d + "x"\n')
 
 # =====================================================================
 # MATRICES: LISTAS Y ARRAY

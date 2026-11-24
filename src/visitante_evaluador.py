@@ -43,6 +43,7 @@ from src.tabla import Tabla, ErrorDatos, leer_csv, escribir_csv
 from src import operaciones as ops
 from src import biblioteca
 from src import visualizacion
+from src import conversiones
 
 class RetornoSenal(Exception):
     """
@@ -841,6 +842,10 @@ class VisitanteEvaluador(TerraVisitor):
             derecho = self.visit(operandos[i])
             linea = ctx.start.line
 
+            if (conversiones.es_matricial(resultado)
+                    or conversiones.es_matricial(derecho)):
+                resultado = conversiones.operar(operador, resultado, derecho)
+                continue
             if operador == "+":
                 if es_numero(resultado) and es_numero(derecho):
                     resultado = resultado + derecho
@@ -867,6 +872,10 @@ class VisitanteEvaluador(TerraVisitor):
             derecho = self.visit(operandos[i])
             linea = ctx.start.line
 
+            if (conversiones.es_matricial(resultado)
+                    or conversiones.es_matricial(derecho)):
+                resultado = conversiones.operar(operador, resultado, derecho)
+                continue
             self._exigir_numeros(resultado, derecho, operador, linea)
 
             if operador == "*":
@@ -932,6 +941,8 @@ class VisitanteEvaluador(TerraVisitor):
 
     def _aplicar_unario(self, operador, valor, linea):
         """Aplica '-' o '!' a un valor ya calculado, validando su tipo."""
+        if operador == "-" and conversiones.es_matricial(valor):
+            return conversiones.operar("*", valor, -1)
         if operador == "-":
             if not es_numero(valor):
                 raise ErrorSemantico(
@@ -1130,6 +1141,8 @@ class VisitanteEvaluador(TerraVisitor):
                 "exportar_histograma":  self._f_exportar_histograma,
             }
             for nombre, funcion in biblioteca.funciones(self).items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in conversiones.funciones().items():
                 self._catalogo[nombre] = self._envolver(funcion)
             self._unificar_matrices()
         return self._catalogo

@@ -237,22 +237,24 @@ class _Marco:
         self.lienzo.texto(centro - ancho / 2, ALTO - 30, texto, NEGRO, 2)
 
     def etiquetas_categorias(self, nombres, centros):
-        """Nombres debajo de cada barra o caja. Si no caben derechos, se
-        escriben verticales."""
+        """
+        Nombres debajo de cada barra o caja. Se prueba en este orden:
+          1. todos en una fila, si caben;
+          2. en dos filas alternadas (uno arriba, uno abajo), que deja el
+             doble de espacio a cada nombre;
+          3. en dos filas alternadas, recortando con '..' los que no caben.
+        """
         espacio = (self.der - self.izq) / max(len(nombres), 1)
-        caben = all(Lienzo.ancho_texto(str(n)) <= espacio - 4
-                    for n in nombres)
-        for nombre, x in zip(nombres, centros):
-            texto = str(nombre)
-            if caben:
-                ancho = Lienzo.ancho_texto(texto)
-                self.lienzo.texto(x - ancho / 2, self.abajo + 10, texto,
-                                  GRIS_OSCURO)
+        textos = [str(n) for n in nombres]
+        una_fila = all(Lienzo.ancho_texto(t) <= espacio - 4 for t in textos)
+        for i, (texto, x) in enumerate(zip(textos, centros)):
+            if una_fila:
+                y = self.abajo + 10
             else:
-                texto = _recortar(texto, MARGEN_ABAJO - 40, 1)
-                self.lienzo.texto_vertical(
-                    x - 3, self.abajo + 8 + Lienzo.ancho_texto(texto),
-                    texto, GRIS_OSCURO)
+                y = self.abajo + 10 + (12 if i % 2 else 0)
+                texto = _recortar(texto, 2 * espacio - 6, 1)
+            ancho = Lienzo.ancho_texto(texto)
+            self.lienzo.texto(x - ancho / 2, y, texto, GRIS_OSCURO)
 
     def dibujar_leyenda(self):
         if not self.leyendas:

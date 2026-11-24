@@ -121,6 +121,15 @@ def _en_orden(valores) -> list:
     return vistos
 
 
+def _ordenar_si_son_numeros(valores) -> list:
+    """Los grupos numericos (0, 1, 2...) se muestran en orden; los de
+    texto, en el orden en que aparecen en la tabla."""
+    if all(isinstance(v, (int, float)) and not isinstance(v, bool)
+           for v in valores):
+        return sorted(valores)
+    return valores
+
+
 def _bins_sturges(n: int) -> int:
     """
     Numero de intervalos del histograma con la regla de Sturges:
@@ -262,7 +271,7 @@ def _caja(tabla, opciones, ruta):
         nombres = [columna_y]
         listas = [valores]
     else:
-        nombres = _en_orden(grupos)
+        nombres = _ordenar_si_son_numeros(_en_orden(grupos))
         listas = [[v for v, g in zip(valores, grupos) if g == nombre]
                   for nombre in nombres]
         nombres = [str(n) for n in nombres]

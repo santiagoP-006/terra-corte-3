@@ -42,6 +42,10 @@ from gramaticas.TerraVisitor import TerraVisitor
 from src.tabla import Tabla, ErrorDatos, leer_csv, escribir_csv
 from src import operaciones as ops
 from src import biblioteca
+from src import visualizacion
+from src import conversiones
+from src import aprendizaje
+from src import eficiencia
 
 class RetornoSenal(Exception):
     """
@@ -71,7 +75,12 @@ class ErrorSemantico(Exception):
 # =====================================================================
 
 def nombre_tipo(valor) -> str:
-    """Devuelve el nombre del tipo Terra de un valor de Python."""
+    """
+    Devuelve el nombre del tipo Terra de un valor de Python.
+
+    El orden importa: bool va antes que int (en Python bool es subclase
+    de int) y DataFrame va antes que Tabla (DataFrame hereda de Tabla).
+    """
     if isinstance(valor, bool):
         return "booleano"
     if isinstance(valor, int):
@@ -84,16 +93,19 @@ def nombre_tipo(valor) -> str:
         return "lista"
     if valor is None:
         return "nulo"
+    if isinstance(valor, DataFrame):
+        return "dataframe"
     if isinstance(valor, Tabla):
         return "tabla"
+    if isinstance(valor, Array):
+        return "array"
+    if isinstance(valor, dict) and "tipo" in valor:
+        return "modelo"
+    if isinstance(valor, dict) and "exactitud" in valor:
+        return "evaluacion"
     if biblioteca.es_funcion(valor):
         return "funcion"
     return "desconocido"
-
-    if isinstance(valor, DataFrame):
-        return "dataframe"
-    if isinstance(valor, Array):
-        return "array"
 
 
 def es_numero(valor) -> bool:
@@ -108,7 +120,13 @@ def es_numero(valor) -> bool:
 
 
 def formatear(valor, anidado=False) -> str:
-    """Convierte un valor a su representacion textual en Terra."""
+    """
+    Convierte un valor a su representacion textual en Terra.
+
+    Cada tipo tiene su propia forma de mostrarse. Antes habia codigo
+    despues de un 'return' que nunca se ejecutaba; por eso los arrays
+    salian como 'Array(2, 2)' y los modelos como diccionarios de Python.
+    """
     if valor is None:
         return "nulo"
     if isinstance(valor, bool):
@@ -117,37 +135,16 @@ def formatear(valor, anidado=False) -> str:
         return "[" + ", ".join(formatear(v, True) for v in valor) + "]"
     if isinstance(valor, str):
         return f'"{valor}"' if anidado else valor
-    if isinstance(valor, Tabla):
-        return valor.como_texto()	    
-
-    if isinstance(valor, dict) and "tipo" in valor:
-        return _formatear_modelo(valor)
-    return str(valor)
-
-    if isinstance(valor, dict) and valor.get("tipo") == "arbol_decision":
-        internos, hojas = ad._contar_nodos(valor["raiz"])
-        prof = ad._profundidad_real(valor["raiz"])
-        return (f"Arbol de decision  "
-                f"(n={valor['n']}, p={valor['p']}, "
-                f"clases={valor['clases']})\n"
-                f"  Profundidad: {prof}  |  "
-                f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
-                f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
-
-    if isinstance(valor, dict) and "exactitud" in valor:
-        return (f"Evaluacion: exactitud={round(valor['exactitud']*100, 2)}%  "
-                f"({valor['correctas']}/{valor['total']})")
-
-
-    if isinstance(valor, DataFrame):
+    if isinstance(valor, Tabla):          # incluye DataFrame
         return valor.como_texto()
-    
     if isinstance(valor, Array):
         return valor.como_texto()
-    
+    if isinstance(valor, dict) and "tipo" in valor:
+        return _formatear_modelo(valor)
     if isinstance(valor, dict) and "exactitud" in valor:
-        return (f"Evaluacion: exactitud={round(valor['exactitud']*100,2)}%  "
-                f"({valor['correctas']}/{valor['total']})")
+        return (f"Evaluacion: exactitud={round(valor['exactitud'] * 100, 2)}%"
+                f"  ({valor['correctas']}/{valor['total']})")
+    return str(valor)
 
 def _formatear_modelo(modelo: dict) -> str:
     """Representacion legible de un modelo de regresion."""
@@ -167,8 +164,26 @@ def _formatear_modelo(modelo: dict) -> str:
                 f"p={modelo['p']})\n"
                 f"  y = {coefs[0]} + {terms}\n"
                 f"  R^2 = {r2}")
-    return str(modelo)
-
+    if modelo["tipo"] == "arbol_decision":
+        internos, hojas = ad._contar_nodos(modelo["raiz"])
+        prof = ad._profundidad_real(modelo["raiz"])
+        return (f"Arbol de decision  "
+                f"(n={modelo['n']}, p={modelo['p']}, "
+                f"clases={modelo['clases']})\n"
+                f"  Profundidad: {prof}  |  "
+                f"Nodos internos: {internos}  |  Hojas: {hojas}\n"
+                f"  Usa mostrar_arbol(modelo) para ver la estructura completa")
+    return aprendizaje.describir(modelo)
+def _traducir_error(error) -> str:
+    """Mensaje en espanol para un error interno de Python."""
+    if isinstance(error, ZeroDivisionError):
+        return "division por cero"
+    if isinstance(error, OverflowError):
+        return "el resultado es demasiado grande para representarse"
+    if isinstance(error, TypeError):
+        return ("los argumentos no tienen el tipo esperado; revisa el "
+                f"orden y el tipo de cada uno (detalle: {error})")
+    return f"operacion no valida (detalle: {error})"
 # =====================================================================
 # VISITANTE
 # =====================================================================
@@ -190,6 +205,15 @@ class VisitanteEvaluador(TerraVisitor):
         self.funciones = {}
         self.profundidad = 0
         self.modo_interactivo = modo_interactivo
+        self.contador = eficiencia.Contador()
+
+    def visit(self, arbol):
+        """
+        Todos los nodos que se evaluan pasan por aqui. Antes de evaluar
+        cada uno se cuenta en el contador de operaciones (eficiencia.py).
+        """
+        self.contador.registrar(arbol)
+        return arbol.accept(self)
     # -----------------------------------------------------------------
     # ESTRUCTURA
     # -----------------------------------------------------------------
@@ -208,9 +232,27 @@ class VisitanteEvaluador(TerraVisitor):
                 self.visit(hijo)
         return None
 
-    def visitSentencia(self, ctx: TerraParser.SentenciaContext):
-        return self.visit(ctx.getChild(0))
+    # Errores de Python que pueden escaparse desde las bibliotecas propias
+    # (por ejemplo, pasar un texto donde se esperaba un numero). No se
+    # incluye RecursionError: ese lo maneja _invocar con su propio mensaje.
+    _ERRORES_INTERNOS = (TypeError, ValueError, ZeroDivisionError,
+                         IndexError, KeyError, AttributeError, OverflowError)
 
+    def visitSentencia(self, ctx: TerraParser.SentenciaContext):
+        """
+        Ejecuta una sentencia.
+
+        Funciona como red de seguridad: si algo falla dentro de Python y
+        nadie lo convirtio en ErrorSemantico, aqui se traduce, con la linea
+        de la sentencia. Asi el usuario nunca ve un mensaje en ingles sin
+        linea como "unsupported operand type(s) for /".
+        """
+        try:
+            return self.visit(ctx.getChild(0))
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), ctx.start.line)
+        except self._ERRORES_INTERNOS as e:
+            raise ErrorSemantico(_traducir_error(e), ctx.start.line)
     # -----------------------------------------------------------------
     # VARIABLES
     # -----------------------------------------------------------------
@@ -378,10 +420,57 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(str(e), linea)
         return None
 
-    def visitGraficar_stmt(self, ctx):
-        raise ErrorSemantico(
-            "'graficar' se reconoce sintacticamente pero su ejecucion "
-            "corresponde al tercer corte", ctx.start.line)
+    def visitGraficar_stmt(self, ctx: TerraParser.Graficar_stmtContext):
+        """
+        graficar <tipo> <tabla>
+            eje_x <columna>   eje_y <columna>
+            titulo "texto"    leyenda "texto o columna"
+            guardar como "ruta.png"
+
+        Aqui solo se lee el arbol: el tipo, la tabla y las opciones (que
+        pueden ir en cualquier orden pero sin repetirse). El trabajo de
+        sacar los datos y dibujar lo hace visualizacion.py.
+        """
+        linea = ctx.start.line
+        tipo = ctx.tipo_grafica().getText()
+        tabla = self.visit(ctx.expr())
+        if not isinstance(tabla, Tabla):
+            raise ErrorSemantico(
+                f"'graficar' necesita una tabla, se recibio "
+                f"{nombre_tipo(tabla)}", linea)
+
+        opciones = {}
+        for opcion in ctx.opcion_grafica():
+            if opcion.EJE_X():
+                clave, valor = "eje_x", opcion.IDENTIFICADOR().getText()
+            elif opcion.EJE_Y():
+                clave, valor = "eje_y", opcion.IDENTIFICADOR().getText()
+            else:
+                if opcion.TITULO():
+                    clave = "titulo"
+                elif opcion.LEYENDA():
+                    clave = "leyenda"
+                else:
+                    clave = "ruta"
+                valor = self.visit(opcion.expr())
+                if not isinstance(valor, str):
+                    raise ErrorSemantico(
+                        f"la opcion '{clave}' de graficar debe ser texto, "
+                        f"se recibio {nombre_tipo(valor)}",
+                        opcion.start.line)
+            if clave in opciones:
+                raise ErrorSemantico(
+                    f"la opcion '{clave}' esta repetida en graficar",
+                    opcion.start.line)
+            opciones[clave] = valor
+
+        try:
+            mensaje = visualizacion.graficar(tipo, tabla, opciones)
+        except ErrorDatos as e:
+            raise ErrorSemantico(str(e), linea)
+        if mensaje:
+            print(mensaje)
+        return None
 
     def visitCarga(self, ctx: TerraParser.CargaContext):
         """
@@ -763,6 +852,10 @@ class VisitanteEvaluador(TerraVisitor):
             derecho = self.visit(operandos[i])
             linea = ctx.start.line
 
+            if (conversiones.es_matricial(resultado)
+                    or conversiones.es_matricial(derecho)):
+                resultado = conversiones.operar(operador, resultado, derecho)
+                continue
             if operador == "+":
                 if es_numero(resultado) and es_numero(derecho):
                     resultado = resultado + derecho
@@ -789,6 +882,10 @@ class VisitanteEvaluador(TerraVisitor):
             derecho = self.visit(operandos[i])
             linea = ctx.start.line
 
+            if (conversiones.es_matricial(resultado)
+                    or conversiones.es_matricial(derecho)):
+                resultado = conversiones.operar(operador, resultado, derecho)
+                continue
             self._exigir_numeros(resultado, derecho, operador, linea)
 
             if operador == "*":
@@ -804,14 +901,44 @@ class VisitanteEvaluador(TerraVisitor):
         return resultado
 
     def visitPotencia(self, ctx: TerraParser.PotenciaContext):
-        """Potencia, asociativa a la derecha: 2 ^ 3 ^ 2 es 2 ^ (3 ^ 2)."""
-        base = self.visit(ctx.unario())
-        if ctx.potencia() is None:
-            return base
+        """
+        Potencia, asociativa a la derecha: 2 ^ 3 ^ 2 es 2 ^ (3 ^ 2).
 
+        En matematicas -2 ^ 2 es -(2 ^ 2) = -4: la potencia se calcula
+        antes que el signo. La gramatica agrupa (-2) ^ 2, asi que aqui se
+        separan los signos '-' y '!' que tenga delante la base, se calcula
+        la potencia y despues se aplican los signos. Escribir (-2) ^ 2 con
+        parentesis sigue dando 4.
+        """
+        if ctx.potencia() is None:
+            return self.visit(ctx.unario())
+
+        signos = []
+        nodo = ctx.unario()
+        while nodo.postfijo() is None:
+            signos.append(nodo.getChild(0).getText())
+            nodo = nodo.unario()
+
+        base = self.visit(nodo.postfijo())
         exponente = self.visit(ctx.potencia())
-        self._exigir_numeros(base, exponente, "^", ctx.start.line)
-        return base ** exponente
+        linea = ctx.start.line
+        self._exigir_numeros(base, exponente, "^", linea)
+
+        if base == 0 and exponente < 0:
+            raise ErrorSemantico(
+                "cero elevado a un exponente negativo es una division por "
+                "cero", linea)
+        if base < 0 and isinstance(exponente, float) \
+                and not exponente.is_integer():
+            raise ErrorSemantico(
+                f"no se puede elevar un numero negativo ({base}) a un "
+                f"exponente decimal ({exponente}): el resultado no es un "
+                f"numero real", linea)
+
+        resultado = base ** exponente
+        for signo in reversed(signos):
+            resultado = self._aplicar_unario(signo, resultado, linea)
+        return resultado
 
     def visitUnario(self, ctx: TerraParser.UnarioContext):
         """Negativo aritmetico y negacion logica."""
@@ -820,8 +947,12 @@ class VisitanteEvaluador(TerraVisitor):
 
         operador = ctx.getChild(0).getText()
         valor = self.visit(ctx.unario())
-        linea = ctx.start.line
+        return self._aplicar_unario(operador, valor, ctx.start.line)
 
+    def _aplicar_unario(self, operador, valor, linea):
+        """Aplica '-' o '!' a un valor ya calculado, validando su tipo."""
+        if operador == "-" and conversiones.es_matricial(valor):
+            return conversiones.operar("*", valor, -1)
         if operador == "-":
             if not es_numero(valor):
                 raise ErrorSemantico(
@@ -966,6 +1097,7 @@ class VisitanteEvaluador(TerraVisitor):
 
                 # --- pandas ---
                 "dataframe":        self._f_dataframe,
+                "dataframe_cols":   self._f_dataframe_cols,
                 "desde_tabla":      self._f_desde_tabla,
                 "head":             self._f_head,
                 "tail":             self._f_tail,
@@ -982,7 +1114,7 @@ class VisitanteEvaluador(TerraVisitor):
                 "array":            self._f_array,
                 "zeros":            self._f_zeros,
                 "ones":             self._f_ones,
-                "identidad":        self._f_identidad,
+                "identidad_array":  self._f_identidad,
                 "rango_array":      self._f_rango_array,
                 "linspace":         self._f_linspace,
                 "reshape":          self._f_reshape,
@@ -1020,7 +1152,62 @@ class VisitanteEvaluador(TerraVisitor):
             }
             for nombre, funcion in biblioteca.funciones(self).items():
                 self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in conversiones.funciones().items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in aprendizaje.funciones().items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            for nombre, funcion in eficiencia.funciones(self).items():
+                self._catalogo[nombre] = self._envolver(funcion)
+            self._unificar_matrices()
         return self._catalogo
+
+    # Funciones que existen dos veces: en biblioteca.py (trabajan con
+    # listas de listas) y en terra_numpy.py (trabajan con Array). Antes la
+    # version de la biblioteca pisaba a la de numpy y transpuesta(array(...))
+    # fallaba. Ahora una sola funcion decide segun el tipo del argumento.
+    _NOMBRES_DOBLES = {
+        "transpuesta":  "_f_transpuesta",
+        "determinante": "_f_determinante",
+        "traza":        "_f_traza",
+        "norma":        "_f_norma",
+        "concatenar":   "_f_concatenar",
+    }
+
+    def _unificar_matrices(self):
+        """Hace que las funciones de matrices acepten listas y Array."""
+        for nombre, metodo in self._NOMBRES_DOBLES.items():
+            version_lista = self._catalogo[nombre]
+            version_array = getattr(self, metodo)
+            self._catalogo[nombre] = self._segun_tipo(version_lista,
+                                                      version_array)
+
+        # inversa y dimension solo existian para listas: con un Array se
+        # convierte a listas, se calcula y se devuelve en el mismo tipo
+        inversa_lista = self._catalogo["inversa"]
+        dimension_lista = self._catalogo["dimension"]
+
+        def inversa(args, linea):
+            if args and isinstance(args[0], Array):
+                resultado = inversa_lista([args[0].como_listas()], linea)
+                return np.array(resultado)
+            return inversa_lista(args, linea)
+
+        def dimension(args, linea):
+            if len(args) == 1 and isinstance(args[0], Array):
+                return list(args[0].forma)
+            return dimension_lista(args, linea)
+
+        self._catalogo["inversa"] = inversa
+        self._catalogo["dimension"] = dimension
+
+    @staticmethod
+    def _segun_tipo(version_lista, version_array):
+        """Usa la version de Array si algun argumento es un Array."""
+        def llamar(args, linea):
+            if any(isinstance(a, Array) for a in args):
+                return version_array(args, linea)
+            return version_lista(args, linea)
+        return llamar
 
     def _envolver(self, funcion):
         """
@@ -1568,15 +1755,13 @@ class VisitanteEvaluador(TerraVisitor):
 
 # --- Implementacion de funciones de pandas ---
     def _f_dataframe(self, args, linea):
-        if len(args) != 1 or not isinstance(args[0], dict):
-            raise ErrorSemantico(
-                "dataframe() espera un diccionario {columna: lista}", linea)
-        # En Terra los diccionarios no existen como tipo nativo, pero los
-        # modelos son dicts. Se usa desde Terra pasando listas paralelas:
-        # dataframe([col1, col2], [[v1,v2,...], [v1,v2,...]])
-        raise ErrorSemantico(
-            "usa dataframe_cols(nombres, listas) para crear un DataFrame", linea)
+        """
+        dataframe(["col1", "col2"], [[valores1], [valores2]]) -> DataFrame
 
+        Terra no tiene diccionarios como tipo del lenguaje, asi que las
+        columnas se pasan como dos listas paralelas: nombres y valores.
+        """
+        return self._f_dataframe_cols(args, linea)
 
     def _f_dataframe_cols(self, args, linea):
         """dataframe_cols([col1, col2], [[vals1], [vals2]]) -> DataFrame"""
@@ -1592,6 +1777,16 @@ class VisitanteEvaluador(TerraVisitor):
             raise ErrorSemantico(
                 "dataframe_cols(): el numero de nombres y de listas debe coincidir",
                 linea)
+        if not all(isinstance(n, str) for n in nombres):
+            raise ErrorSemantico(
+                "dataframe(): los nombres de columna deben ser textos", linea)
+        if not all(isinstance(l, list) for l in listas):
+            raise ErrorSemantico(
+                "dataframe(): cada columna debe ser una lista de valores",
+                linea)
+        if len(set(nombres)) != len(nombres):
+            raise ErrorSemantico(
+                "dataframe(): hay nombres de columna repetidos", linea)
         try:
             datos = {nombres[i]: listas[i] for i in range(len(nombres))}
             return pd.crear_dataframe(datos)
@@ -1779,7 +1974,78 @@ class VisitanteEvaluador(TerraVisitor):
         return self._wrap_np(np.abs_array, args, linea, "abs_array")
 
 # --- Implementacion de funciones de graficado ---
+
+    # Que espera cada funcion de graficado, posicion por posicion.
+    #   "nums"   lista de numeros (se permite nulo)
+    #   "series" lista de numeros o lista de listas de numeros
+    #   "lista"  lista de cualquier cosa (categorias)
+    #   "texto"  titulo, nombre de eje o ruta
+    #   "bins"   entero mayor o igual a 1
+    _FIRMAS_GRAFICAS = {
+        "graficar_lineas":     ["nums", "nums", "texto", "texto", "texto"],
+        "graficar_barras":     ["lista", "nums", "texto", "texto"],
+        "graficar_dispersion": ["nums", "nums", "texto", "texto", "texto"],
+        "graficar_histograma": ["nums", "bins", "texto", "texto"],
+        "graficar_caja":       ["nums", "texto", "texto"],
+        "exportar_lineas":     ["nums", "series", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_barras":     ["lista", "nums", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_dispersion": ["nums", "nums", "texto", "texto", "texto",
+                                "texto"],
+        "exportar_histograma": ["nums", "texto", "bins", "texto", "texto"],
+    }
+
+    def _validar_grafica(self, funcion, args, linea):
+        """
+        Revisa los argumentos de una funcion de graficado antes de dibujar.
+
+        Devuelve los argumentos listos para usar: un Array de una dimension
+        se convierte en lista, para que se pueda graficar directamente.
+        """
+        firma = self._FIRMAS_GRAFICAS[funcion]
+        if len(args) > len(firma):
+            raise ErrorSemantico(
+                f"{funcion}() recibe maximo {len(firma)} argumentos, se "
+                f"recibieron {len(args)}", linea)
+
+        listos = []
+        for posicion, (valor, esperado) in enumerate(zip(args, firma), 1):
+            if isinstance(valor, Array) and valor.es_1d:
+                valor = list(valor.datos)
+
+            if esperado == "texto" and not isinstance(valor, str):
+                problema = "un texto"
+            elif esperado == "bins" and (isinstance(valor, bool)
+                                         or not isinstance(valor, int)
+                                         or valor < 1):
+                problema = "un numero entero mayor o igual a 1"
+            elif esperado == "lista" and not isinstance(valor, list):
+                problema = "una lista"
+            elif esperado == "nums" and not self._son_numeros(valor):
+                problema = "una lista de numeros"
+            elif esperado == "series" and not (
+                    self._son_numeros(valor)
+                    or (isinstance(valor, list) and valor
+                        and all(self._son_numeros(v) for v in valor))):
+                problema = "una lista de numeros o una lista de series"
+            else:
+                problema = None
+
+            if problema:
+                raise ErrorSemantico(
+                    f"{funcion}(): el argumento {posicion} debe ser "
+                    f"{problema}, se recibio {nombre_tipo(valor)}", linea)
+            listos.append(valor)
+        return listos
+
+    @staticmethod
+    def _son_numeros(valor) -> bool:
+        """True si es una lista no vacia de numeros (o nulos)."""
+        return (isinstance(valor, list) and len(valor) > 0
+                and all(v is None or es_numero(v) for v in valor))
     def _f_graficar_lineas(self, args, linea):
+        args = self._validar_grafica("graficar_lineas", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_lineas() espera xs, ys [, titulo] [, eje_x] [, eje_y]",
@@ -1795,6 +2061,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_barras(self, args, linea):
+        args = self._validar_grafica("graficar_barras", args, linea)  
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_barras() espera categorias, valores [, titulo] [, eje_y]",
@@ -1809,6 +2076,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_dispersion(self, args, linea):
+        args = self._validar_grafica("graficar_dispersion", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "graficar_dispersion() espera xs, ys [, titulo]", linea)
@@ -1823,6 +2091,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_histograma(self, args, linea):
+        args = self._validar_grafica("graficar_histograma", args, linea)
         if len(args) < 1:
             raise ErrorSemantico("graficar_histograma() espera una lista", linea)
         bins   = args[1] if len(args) > 1 else 10
@@ -1836,6 +2105,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_graficar_caja(self, args, linea):
+        args = self._validar_grafica("graficar_caja", args, linea)
         if len(args) < 1:
             raise ErrorSemantico("graficar_caja() espera una lista", linea)
         titulo = args[1] if len(args) > 1 else ""
@@ -1848,6 +2118,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_lineas(self, args, linea):
+        args = self._validar_grafica("exportar_lineas", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_lineas() espera xs, ys, ruta [, titulo] [, eje_x] [, eje_y]",
@@ -1865,6 +2136,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_barras(self, args, linea):
+        args = self._validar_grafica("exportar_barras", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_barras() espera categorias, valores, ruta [, titulo]",
@@ -1880,6 +2152,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_dispersion(self, args, linea):
+        args = self._validar_grafica("exportar_dispersion", args, linea)
         if len(args) < 3:
             raise ErrorSemantico(
                 "exportar_dispersion() espera xs, ys, ruta [, titulo]", linea)
@@ -1894,6 +2167,7 @@ class VisitanteEvaluador(TerraVisitor):
 
 
     def _f_exportar_histograma(self, args, linea):
+        args = self._validar_grafica("exportar_histograma", args, linea)
         if len(args) < 2:
             raise ErrorSemantico(
                 "exportar_histograma() espera lista, ruta [, bins] [, titulo]",

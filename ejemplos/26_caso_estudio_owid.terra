@@ -1,0 +1,266 @@
+# =====================================================================
+# CASO DE ESTUDIO FINAL - Emisiones de CO2 en el mundo
+# Fuente: Our World in Data, owid-co2-data.csv (datos reales)
+# Unidades: co2 en millones de toneladas; co2_per_capita en toneladas
+# por persona; energia_pc en kWh por persona; pib_pc en dolares
+# internacionales (PPA, precios de 2011) por persona.
+#
+# Preguntas:
+#   P1. ¿Que paises de Sudamerica redujeron sus emisiones por habitante
+#       entre 2000 y 2022?
+#   P2. ¿Los paises mas ricos emiten mas CO2 por habitante?
+#   P3. ¿Se puede predecir el CO2 por habitante de un pais con su
+#       riqueza y su consumo de energia? ¿Que modelo lo hace mejor?
+#   P4. ¿Como se agrupan los paises segun su perfil de emisiones?
+#
+# Ejecutar:  python src/terra.py ejemplos/26_caso_estudio_owid.terra --eficiencia
+# =====================================================================
+
+fijo owid = cargar "datos/owid-co2-data.csv"
+
+# --- Preparacion -----------------------------------------------------
+# Solo paises (los agregados como "World" no tienen iso_code), del 2000
+# en adelante, con las columnas que se usan y nombres en espanol.
+fijo paises = owid
+    |> eliminar nulos en [iso_code]
+    |> filtrar donde year >= 2000
+    |> seleccionar [country, year, population, gdp, co2, co2_per_capita, energy_per_capita]
+    |> renombrar country como pais
+    |> renombrar year como anio
+    |> renombrar population como poblacion
+    |> renombrar energy_per_capita como energia_pc
+
+mostrar("Filas de trabajo (paises, 2000 en adelante):", num_filas(paises))
+
+# La tabla completa (50 000 filas x 79 columnas) ya no se necesita:
+# se libera para que no ocupe memoria el resto del programa.
+liberar("owid")
+
+# =====================================================================
+# P1. Sudamerica: ¿quien redujo sus emisiones por habitante?
+# =====================================================================
+fijo sudamerica = paises
+    |> filtrar donde pais en ["Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"]
+    |> filtrar donde anio <= 2022
+    |> eliminar nulos en [co2_per_capita]
+
+fijo en_2000 = sudamerica
+    |> filtrar donde anio == 2000
+    |> seleccionar [pais, co2_per_capita]
+    |> renombrar co2_per_capita como pc_2000
+fijo en_2022 = sudamerica
+    |> filtrar donde anio == 2022
+    |> seleccionar [pais, co2_per_capita]
+    |> renombrar co2_per_capita como pc_2022
+
+fijo cambio = unir(en_2000, en_2022, "pais")
+    |> crear cambio_pct = redondear((pc_2022 - pc_2000) / pc_2000 * 100, 1)
+    |> ordenar por cambio_pct
+
+mostrar("")
+mostrar("P1. Cambio del CO2 por habitante, 2000 -> 2022 (%):")
+mostrar(cambio)
+
+graficar barras cambio
+    eje_x pais
+    eje_y cambio_pct
+    titulo "Cambio del CO2 por habitante 2000-2022 (%)"
+    leyenda "cambio porcentual"
+    guardar como "salidas/caso_p1_cambio.png"
+
+graficar lineas sudamerica
+    eje_x anio
+    eje_y co2_per_capita
+    leyenda "pais"
+    titulo "CO2 por habitante en Sudamerica"
+    guardar como "salidas/caso_p1_evolucion.png"
+
+# =====================================================================
+# P2. Riqueza y emisiones (2022)
+# =====================================================================
+fijo mundo = paises
+    |> filtrar donde anio == 2022
+    |> eliminar nulos en [gdp, co2_per_capita, energia_pc, poblacion]
+    |> crear pib_pc = redondear(gdp / poblacion, 0)
+    |> crear ln_pib = ln(pib_pc)
+    |> crear ln_energia = ln(energia_pc)
+    |> crear ln_co2 = ln(co2_per_capita)
+    |> seleccionar [pais, pib_pc, energia_pc, co2_per_capita, ln_pib, ln_energia, ln_co2]
+
+mostrar("")
+mostrar("P2. Paises con datos completos en 2022:", num_filas(mundo))
+fijo numeros = mundo |> seleccionar [pib_pc, energia_pc, co2_per_capita]
+mostrar(describir(numeros))
+mostrar("Correlaciones (valores originales):")
+mostrar(correlacion(desde_tabla(numeros)))
+
+# Unos pocos paises emiten muchisimo mas que el resto (el histograma
+# esta muy cargado a la izquierda). Con logaritmos los datos quedan mas
+# parejos y la relacion se vuelve casi una recta.
+fijo logs = mundo |> seleccionar [ln_pib, ln_energia, ln_co2]
+mostrar("Correlaciones (logaritmos):")
+mostrar(correlacion(desde_tabla(logs)))
+
+fijo recta = regresion_lineal(columna(mundo, "pib_pc"), columna(mundo, "co2_per_capita"))
+mostrar("Regresion co2_per_capita ~ pib_pc:")
+mostrar(recta)
+
+graficar dispersion mundo
+    eje_x pib_pc
+    eje_y co2_per_capita
+    titulo "PIB por habitante vs CO2 por habitante (2022)"
+    leyenda "un punto por pais"
+    guardar como "salidas/caso_p2_dispersion.png"
+
+graficar histograma mundo
+    eje_x co2_per_capita
+    titulo "Distribucion del CO2 por habitante (2022)"
+    guardar como "salidas/caso_p2_histograma.png"
+
+graficar dispersion mundo
+    eje_x ln_pib
+    eje_y ln_co2
+    titulo "Lo mismo en logaritmos: casi una recta"
+    leyenda "un punto por pais"
+    guardar como "salidas/caso_p2_dispersion_log.png"
+
+# =====================================================================
+# P3. ¿Se puede predecir el CO2 por habitante?
+# =====================================================================
+# Se trabaja en logaritmos (por lo visto en P2) y al final se vuelve a
+# toneladas con exp() para medir el error en las unidades reales.
+fijo X = mundo |> seleccionar [ln_pib, ln_energia]
+fijo y = columna(mundo, "ln_co2")
+fijo partes = dividir_datos(X, y, 0.25, 2026)
+fijo X_ent = partes[0]
+fijo X_pru = partes[1]
+fijo y_ent = partes[2]
+fijo y_pru = partes[3]
+mostrar("")
+mostrar("P3. Entrenamiento:", num_filas(X_ent), "paises  |  prueba:", num_filas(X_pru), "paises")
+
+# Regresion lineal multiple
+fijo m_lineal = regresion_multiple(a_listas(X_ent), y_ent)
+fijo p_lineal = aplicar_modelo(m_lineal, X_pru)
+
+# KNN de regresion (con las columnas estandarizadas)
+fijo m_knn = knn_regresion(estandarizar(X_ent), y_ent, 5)
+fijo p_knn = aplicar_modelo(m_knn, estandarizar(X_pru, X_ent))
+
+# Arbol de decision no aplica: es de clasificacion. Perceptron multicapa:
+fijo m_red = perceptron_regresor(X_ent, y_ent, [8], 300, 0.01, 2026)
+fijo p_red = aplicar_modelo(m_red, X_pru)
+mostrar(m_red)
+
+# De logaritmo a toneladas por habitante
+fijo reales = mapear(y_pru, exp)
+fijo t_lineal = mapear(p_lineal, exp)
+fijo t_knn = mapear(p_knn, exp)
+fijo t_red = mapear(p_red, exp)
+
+# Se mide de dos formas: R2 en logaritmos (la escala en que aprendieron
+# los modelos) y R2 y error medio en toneladas (la escala real).
+fijo resultados = dataframe(["modelo", "r2_log", "r2_toneladas", "mae_toneladas"], [["Regresion lineal", "KNN (k=5)", "Perceptron"], [redondear(r2(y_pru, p_lineal), 3), redondear(r2(y_pru, p_knn), 3), redondear(r2(y_pru, p_red), 3)], [redondear(r2(reales, t_lineal), 3), redondear(r2(reales, t_knn), 3), redondear(r2(reales, t_red), 3)], [redondear(mae(reales, t_lineal), 3), redondear(mae(reales, t_knn), 3), redondear(mae(reales, t_red), 3)]])
+mostrar("Resultados en los datos de prueba:")
+mostrar(resultados)
+
+# ¿Donde se equivocan mas? Los paises a los que el perceptron les
+# calcula mucho mas CO2 del que emiten de verdad.
+fijo de_prueba = dividir_datos(mundo, y, 0.25, 2026)[1]
+fijo errores = dataframe(["pais", "real", "perceptron"], [columna(de_prueba, "pais"), reales, t_red])
+    |> crear sobreestimacion = redondear(perceptron - real, 2)
+    |> ordenar por sobreestimacion desc
+    |> limitar 5
+mostrar("Paises donde el modelo mas se equivoca (toneladas por habitante):")
+mostrar(errores)
+
+graficar barras resultados
+    eje_x modelo
+    eje_y r2_log
+    titulo "R2 de cada modelo en datos de prueba (logaritmos)"
+    leyenda "R2 (1 = perfecto)"
+    guardar como "salidas/caso_p3_modelos.png"
+
+# =====================================================================
+# P4. Perfiles de paises con k-medias
+# =====================================================================
+fijo perfil = normalizar(logs)
+fijo inercias = inercias_kmeans(perfil, 8, 2026)
+fijo codo = dataframe(["k", "inercia"], [rango(1, 9), inercias])
+
+graficar lineas codo
+    eje_x k
+    eje_y inercia
+    titulo "Metodo del codo para escoger k"
+    guardar como "salidas/caso_p4_codo.png"
+
+fijo grupos = kmeans(perfil, 4, 2026)
+mostrar("")
+mostrar("P4.")
+mostrar(grupos)
+
+fijo con_grupo = unir(mundo, dataframe(["pais", "grupo"], [columna(mundo, "pais"), grupos_kmeans(grupos)]), "pais")
+fijo perfiles = con_grupo
+    |> agrupar por [grupo]
+    |> resumir paises = contar(),
+               pib_pc_medio = redondear(media(pib_pc), 0),
+               energia_pc_media = redondear(media(energia_pc), 0),
+               co2_pc_medio = redondear(media(co2_per_capita), 2)
+    |> ordenar por co2_pc_medio
+mostrar("Perfil promedio de cada grupo:")
+mostrar(perfiles)
+
+fijo ejemplos_grupo = con_grupo
+    |> filtrar donde pais en ["Colombia", "Brazil", "United States", "Qatar", "India", "Germany", "Nigeria", "China"]
+    |> seleccionar [pais, grupo, co2_per_capita]
+    |> ordenar por grupo
+mostrar("Algunos paises y su grupo:")
+mostrar(ejemplos_grupo)
+
+graficar caja con_grupo
+    eje_x grupo
+    eje_y co2_per_capita
+    titulo "CO2 por habitante segun el grupo"
+    guardar como "salidas/caso_p4_caja.png"
+
+guardar cambio como "salidas/caso_p1_cambio.csv"
+guardar resultados como "salidas/caso_p3_resultados.csv"
+guardar perfiles como "salidas/caso_p4_perfiles.csv"
+
+# =====================================================================
+# INTERPRETACION DE LOS RESULTADOS
+# =====================================================================
+# P1. Entre 2000 y 2022 solo Venezuela bajo su CO2 por habitante (-34 %),
+#     y no por una politica ambiental sino por la caida de su economia y
+#     de su produccion petrolera. Los demas paises subieron; Bolivia
+#     (+98 %) y Peru (+80 %) casi lo duplicaron, aunque partian de niveles
+#     bajos. Colombia subio 20 % y sigue siendo de los que menos emiten
+#     por habitante en la region (1.7 t).
+#
+# P2. Si: los paises mas ricos emiten mas por habitante (correlacion
+#     0.75), y el consumo de energia lo explica todavia mejor (0.87).
+#     La distribucion es muy desigual: la mayoria de paises emite menos
+#     de 5 t por habitante y unos pocos pasan de 20. En logaritmos la
+#     relacion es casi una recta (correlacion 0.91 con el PIB y 0.97 con
+#     la energia).
+#
+# P3. En logaritmos los tres modelos aciertan muy bien (R2 cercano a
+#     0.94) y el perceptron queda levemente arriba. En toneladas el R2
+#     cae porque unos pocos paises dominan el error: Islandia, Singapur
+#     y Suecia consumen mucha energia pero emiten mucho menos de lo que
+#     el modelo espera. Islandia y Suecia producen su electricidad casi
+#     toda con fuentes limpias (geotermia e hidroelectricas), y los
+#     modelos no saben de donde viene la energia. Conclusion: no importa
+#     solo cuanta energia se usa, sino de donde sale.
+#
+# P4. El metodo del codo sugiere entre 3 y 4 grupos. Con k = 4 aparecen
+#     cuatro perfiles claros: paises de bajos ingresos que casi no
+#     emiten (0.2 t), paises en desarrollo (0.9 t), ingresos medios donde
+#     estan Colombia, Brasil e India (3.4 t) y paises ricos o petroleros
+#     (9.7 t en promedio, con Qatar como el caso extremo de 37.9 t).
+#
+# Eficiencia: con --eficiencia el programa reporta cerca de 55 000
+# operaciones y 1.7 millones de nodos evaluados; la mayor parte son las
+# comparaciones de los filtros sobre las 50 000 filas del archivo.
+# Liberar la tabla original con liberar("owid") baja la memoria
+# estimada de las variables de unos 119 MB a unos 2 MB.

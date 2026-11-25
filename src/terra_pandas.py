@@ -18,7 +18,7 @@ Un DataFrame es una extension de Tabla con operaciones adicionales:
     - corr (correlacion entre columnas numericas)
 """
 
-import random
+from src.matematicas import GENERADOR, GeneradorAleatorio
 from src.tabla import Tabla, ErrorDatos, formatear_valor
 
 
@@ -126,18 +126,34 @@ def info(df: DataFrame) -> str:
 
 
 def sample(df: DataFrame, n: int, semilla: int = None) -> DataFrame:
-    """Muestra aleatoria de n filas sin reemplazo."""
+    """
+    Muestra aleatoria de n filas sin reemplazo.
+
+    Usa el generador propio de matematicas.py (no el modulo random de
+    Python). El metodo es el barajado de Fisher-Yates parcial: se
+    intercambia cada posicion i con una posicion al azar entre i y el
+    final, y las primeras n posiciones quedan como la muestra.
+    Con la misma semilla se obtiene siempre la misma muestra.
+    """
     _validar_df(df, "sample")
+    if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+        raise ErrorDatos("sample(): n debe ser un entero mayor o igual a 0")
     if n > df.num_filas:
         raise ErrorDatos(
             f"sample(): se pidieron {n} filas pero el DataFrame "
             f"solo tiene {df.num_filas}")
-    if semilla is not None:
-        random.seed(semilla)
-    indices = random.sample(range(df.num_filas), n)
-    filas   = [df.filas[i] for i in sorted(indices)]
-    return DataFrame(df.columnas, filas)
+    if semilla is not None and (isinstance(semilla, bool)
+                                or not isinstance(semilla, int)):
+        raise ErrorDatos("sample(): la semilla debe ser un numero entero")
 
+    generador = GENERADOR if semilla is None else GeneradorAleatorio(semilla)
+    posiciones = list(range(df.num_filas))
+    for i in range(n):
+        j = i + int(generador.siguiente() * (len(posiciones) - i))
+        posiciones[i], posiciones[j] = posiciones[j], posiciones[i]
+
+    filas = [df.filas[i] for i in sorted(posiciones[:n])]
+    return DataFrame(df.columnas, filas)
 
 # =====================================================================
 # TRANSFORMACION

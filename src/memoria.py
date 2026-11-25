@@ -61,6 +61,12 @@ def _tipo(valor) -> str:
         return "lista"
     if isinstance(valor, Tabla):
         return "tabla"
+    # Array de terra_numpy: se reconoce por sus atributos para no crear
+    # una importacion circular entre modulos
+    if hasattr(valor, "forma") and hasattr(valor, "datos"):
+        return "array"
+    if isinstance(valor, dict):
+        return "modelo"
     return "funcion"
 
 
@@ -70,6 +76,8 @@ def contar_elementos(valor) -> int:
         return sum(contar_elementos(v) for v in valor)
     if isinstance(valor, Tabla):
         return valor.num_filas * valor.num_columnas
+    if _tipo(valor) == "array":
+        return len(valor.datos)
     return 1
 
 
@@ -90,6 +98,13 @@ def estimar_bytes(valor) -> int:
             total += _BYTES_REFERENCIA * len(fila)
             total += sum(estimar_bytes(v) for v in fila)
         return total
+    if tipo == "array":
+        return (_BYTES_LISTA_BASE + _BYTES_REFERENCIA * len(valor.datos)
+                + sum(estimar_bytes(v) for v in valor.datos))
+    if tipo == "modelo":
+        return (_BYTES_LISTA_BASE
+                + sum(estimar_bytes(c) + estimar_bytes(v)
+                      for c, v in valor.items()))
     return 0
 
 

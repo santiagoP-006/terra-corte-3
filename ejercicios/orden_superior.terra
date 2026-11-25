@@ -1,0 +1,27 @@
+# Funcion que determina si un numero es primo
+funcion es_primo(n):
+    si n < 2:
+        retornar falso
+    fin
+    var i = 2
+    mientras i * i <= n:
+        si n % i == 0:
+            retornar falso
+        fin
+        i = i + 1
+    fin
+    retornar verdadero
+fin
+
+# Funcion de orden superior: recibe una lista y una funcion de filtrado
+funcion filtrar_lista(lista, condicion):
+    retornar filtro(lista, condicion)
+fin
+
+# Generar numeros del 1 al 100 y filtrar los primos
+fijo numeros = rango(1, 101)
+fijo primos = filtrar_lista(numeros, es_primo)
+
+mostrar("Numeros primos del 1 al 100:")
+mostrar(primos)
+mostrar("Cantidad de primos encontrados:", longitud(primos))

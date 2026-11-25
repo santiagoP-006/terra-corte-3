@@ -1,0 +1,15 @@
+# Barras - Ingreso mensual promedio por nivel educativo
+
+fijo datos = cargar "datos/Data.csv"
+
+fijo resumen = datos
+ |> agrupar por [nivel_edu]
+ |> resumir ingreso_promedio = redondear(media(ingreso_mensual),0)
+ |> ordenar por ingreso_promedio desc
+
+graficar barras resumen
+    eje_x nivel_edu
+    eje_y ingreso_promedio
+    titulo "Ingresio mensual promedio por nivel educativo"
+
+    guardar como "salidas/barras_ingreso_nivel.png"

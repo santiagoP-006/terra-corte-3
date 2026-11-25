@@ -1,0 +1,15 @@
+funcion factorial_(n):
+    si n <= 1:
+        retornar 1
+    fin
+    retornar n * factorial(n - 1)
+fin
+
+funcion factoriales_hasta(n):
+    var lista = rango(1, n + 1)
+    retornar mapear(lista, factorial_)
+fin
+
+fijo n = 10
+fijo resultados = factoriales_hasta(n)
+mostrar(resultados)

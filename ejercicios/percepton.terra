@@ -1,0 +1,22 @@
+# Datos de la funcion XOR
+fijo X = [[0, 0], [0, 1], [1, 0], [1, 1]]
+fijo y = ["falso", "verdadero", "verdadero", "falso"]
+
+# Entrenar perceptron con una capa oculta de 4 neuronas
+fijo modelo = perceptron_clasificador(X, y, [4], 2000, 0.1, 42)
+mostrar(modelo)
+
+# Verificar predicciones
+fijo predicciones = aplicar_modelo(modelo, X)
+mostrar("Reales:    ", y)
+mostrar("Predichos: ", predicciones)
+mostrar("Exactitud: ", exactitud(y, predicciones))
+
+# Ver como bajo la perdida durante el entrenamiento
+fijo historial = dataframe(["epoca", "perdida"], [rango(1, 2001), perdidas(modelo)])
+
+graficar lineas historial
+    eje_x epoca
+    eje_y perdida
+    titulo "Entrenamiento XOR - Perdida por epoca"
+    guardar como "salidas/xor_perdida.png"

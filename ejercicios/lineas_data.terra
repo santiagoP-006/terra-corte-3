@@ -1,0 +1,16 @@
+# Ingreso mensual promedio por edad
+
+fijo datos = cargar"datos/Data.csv"
+
+fijo por_edad = datos
+    |> agrupar por [edad]
+    |> resumir ingreso_promedio = redondear(media(ingreso_mensual),0)
+    |> ordenar por edad
+
+graficar lineas por_edad
+
+    eje_x edad
+    eje_y ingreso_promedio
+    titulo "Ingreso promedio segun edad"
+
+    guardar como "salidas/lineas_ingreso_x_edad.png"

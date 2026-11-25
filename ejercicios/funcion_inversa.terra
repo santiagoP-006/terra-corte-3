@@ -1,0 +1,21 @@
+fijo xs = rango(1, 51)
+fijo ys = mapear(xs, funcion(x) => 1.0 / x)
+
+fijo tabla_fx = dataframe(["x", "y"], [a_listas(array([xs[0]])), a_listas(array([ys[0]]))])
+
+var i = 0
+var filas_x = []
+var filas_y = []
+mientras i < longitud(xs):
+    filas_x = agregar(filas_x, xs[i])
+    filas_y = agregar(filas_y, ys[i])
+    i = i + 1
+fin
+
+fijo datos_fx = dataframe(["x", "inv_x"], [filas_x, filas_y])
+
+graficar lineas datos_fx
+    eje_x x
+    eje_y inv_x
+    titulo "Funcion 1/x"
+    guardar como "salidas/funcion_inversa.png"

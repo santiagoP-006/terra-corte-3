@@ -1,0 +1,7 @@
+fijo datos = cargar "datos/Data.csv"
+
+graficar histograma datos
+    eje_x ingreso_mensual
+    titulo "Distribucion del ingreso mensual"
+
+    guardar como "salidas/histograma_ingreso.png"

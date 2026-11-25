@@ -1,0 +1,8 @@
+fijo datos = cargar "datos/Data.csv"
+
+graficar caja datos
+    eje_x sex
+    eje_y ingreso_mensual
+    titulo "Ingreso mensual por sexo"
+
+    guardar como "salidas/caja_ingreso_sexo.png"

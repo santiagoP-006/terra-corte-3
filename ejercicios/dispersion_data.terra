@@ -1,0 +1,11 @@
+fijo datos = cargar "datos/Data.csv"
+
+graficar dispersion datos
+    eje_x anios_esc
+    eje_y ingreso_mensual
+    leyenda "sex"
+
+    titulo "Escolaridad vs Ingreso mensual"
+
+    guardar como "salidas/dispersion_esc_ingreso.png"
+    

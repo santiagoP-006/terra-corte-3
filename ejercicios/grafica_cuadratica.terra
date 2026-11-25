@@ -1,0 +1,11 @@
+fijo xs = rango(-50, 51)
+fijo xs_dec = mapear(xs, funcion(x) => x / 5.0)
+fijo ys = mapear(xs_dec, funcion(x) => x ^ 2)
+
+fijo tabla = dataframe(["x", "cuadratica"], [xs_dec, ys])
+
+graficar lineas tabla
+    eje_x x
+    eje_y cuadratica
+    titulo "Funcion y = x^2"
+    guardar como "salidas/cuadratica.png"

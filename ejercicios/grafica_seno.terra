@@ -1,0 +1,11 @@
+fijo xs = rango(0, 100)
+fijo xs_dec = mapear(xs, funcion(x) => x / 10.0)
+fijo ys = mapear(xs_dec, funcion(x) => seno(x))
+
+fijo tabla = dataframe(["x", "seno_x"], [xs_dec, ys])
+
+graficar lineas tabla
+    eje_x x
+    eje_y seno_x
+    titulo "Funcion seno(x)"
+    guardar como "salidas/seno.png"

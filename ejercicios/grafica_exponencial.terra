@@ -1,0 +1,11 @@
+fijo xs = rango(-20, 21)
+fijo xs_dec = mapear(xs, funcion(x) => x / 4.0)
+fijo ys = mapear(xs_dec, funcion(x) => exp(x))
+
+fijo tabla = dataframe(["x", "exponencial"], [xs_dec, ys])
+
+graficar lineas tabla
+    eje_x x
+    eje_y exponencial
+    titulo "Funcion y = e^x"
+    guardar como "salidas/exponencial.png"

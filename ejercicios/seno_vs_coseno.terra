@@ -1,0 +1,35 @@
+fijo xs = rango(0, 100)
+fijo xs_dec = mapear(xs, funcion(x) => x / 10.0)
+fijo ys_sen = mapear(xs_dec, funcion(x) => seno(x))
+fijo ys_cos = mapear(xs_dec, funcion(x) => coseno(x))
+
+# Para graficar dos series con leyenda se necesita una columna de grupo.
+# Se construye la tabla apilando las dos series con una etiqueta.
+var filas_x = []
+var filas_y = []
+var filas_grupo = []
+var i = 0
+
+mientras i < longitud(xs_dec):
+    filas_x = agregar(filas_x, xs_dec[i])
+    filas_y = agregar(filas_y, ys_sen[i])
+    filas_grupo = agregar(filas_grupo, "seno")
+    i = i + 1
+fin
+
+i = 0
+mientras i < longitud(xs_dec):
+    filas_x = agregar(filas_x, xs_dec[i])
+    filas_y = agregar(filas_y, ys_cos[i])
+    filas_grupo = agregar(filas_grupo, "coseno")
+    i = i + 1
+fin
+
+fijo tabla = dataframe(["x", "y", "funcion"], [filas_x, filas_y, filas_grupo])
+
+graficar lineas tabla
+    eje_x x
+    eje_y y
+    leyenda "funcion"
+    titulo "Seno y Coseno"
+    guardar como "salidas/seno_coseno.png"
